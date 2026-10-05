@@ -16,6 +16,8 @@ export default function FastingScreen() {
   );
 
   const [maghribCountdown, setMaghribCountdown] = useState('02:18:45');
+  const [fastingProgress, setFastingProgress] = useState(82);
+  const [fastingPhaseLabel, setFastingPhaseLabel] = useState('Menuju Waktu Berbuka');
   const [ifCountdown, setIfCountdown] = useState('04:32:10');
   const [isEatingWindowOpen, setIsEatingWindowOpen] = useState(false);
   const [citySelectorOpen, setCitySelectorOpen] = useState(false);
@@ -31,18 +33,37 @@ export default function FastingScreen() {
     const tick = () => {
       const now = new Date();
 
-      // 1. Maghrib countdown
+      // 1. Maghrib countdown & dynamic progress
+      const imsakDate = prayerTimes.raw.imsak;
       const maghribDate = prayerTimes.raw.maghrib;
-      let diffMaghrib = maghribDate.getTime() - now.getTime();
-      if (diffMaghrib > 0) {
+      const totalDuration = maghribDate.getTime() - imsakDate.getTime();
+
+      if (now < imsakDate) {
+        setFastingPhaseLabel('Menuju Waktu Imsak');
+        let diffImsak = imsakDate.getTime() - now.getTime();
+        const h = Math.floor(diffImsak / 3600000);
+        const m = Math.floor((diffImsak % 3600000) / 60000);
+        const s = Math.floor((diffImsak % 60000) / 1000);
+        setMaghribCountdown(
+          `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+        );
+        setFastingProgress(0);
+      } else if (now >= imsakDate && now < maghribDate) {
+        setFastingPhaseLabel('Menuju Waktu Berbuka');
+        let diffMaghrib = maghribDate.getTime() - now.getTime();
         const h = Math.floor(diffMaghrib / 3600000);
         const m = Math.floor((diffMaghrib % 3600000) / 60000);
         const s = Math.floor((diffMaghrib % 60000) / 1000);
         setMaghribCountdown(
           `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
         );
+        const elapsed = now.getTime() - imsakDate.getTime();
+        const pct = Math.min(100, Math.max(0, Math.round((elapsed / totalDuration) * 100)));
+        setFastingProgress(pct);
       } else {
+        setFastingPhaseLabel('Waktu Berbuka Tiba');
         setMaghribCountdown('Alhamdulillah Buka!');
+        setFastingProgress(100);
       }
 
       // 2. IF 16:8 countdown
@@ -286,7 +307,7 @@ export default function FastingScreen() {
                   r="80"
                   stroke="currentColor"
                   strokeDasharray="502.65"
-                  strokeDashoffset="135"
+                  strokeDashoffset={502.65 - (fastingProgress / 100) * 502.65}
                   strokeLinecap="round"
                   strokeWidth="12"
                   style={{
@@ -299,7 +320,7 @@ export default function FastingScreen() {
                 <div className="flex items-center gap-1 text-primary mb-1">
                   <span className="material-symbols-outlined text-[15px]">hourglass_top</span>
                   <span className="font-label-sm text-[10px] font-bold tracking-wider uppercase">
-                    Menuju Waktu Berbuka
+                    {fastingPhaseLabel}
                   </span>
                 </div>
                 <span className="font-metric-display text-2xl text-on-surface font-extrabold tracking-tight">
@@ -307,7 +328,7 @@ export default function FastingScreen() {
                 </span>
                 <span className="font-label-sm text-[10px] text-tertiary font-bold bg-tertiary-fixed px-2.5 py-0.5 rounded-full mt-1.5 flex items-center gap-1 shadow-xs">
                   <span className="w-1.5 h-1.5 rounded-full bg-tertiary" />
-                  82% Terlampaui
+                  {fastingProgress}% Terlampaui
                 </span>
               </div>
             </div>

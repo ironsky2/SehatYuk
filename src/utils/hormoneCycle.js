@@ -53,24 +53,47 @@ export const PHASES = {
   }
 };
 
+export function parseLocalDate(dateStr) {
+  if (!dateStr) return new Date();
+  if (dateStr instanceof Date) {
+    return new Date(dateStr.getFullYear(), dateStr.getMonth(), dateStr.getDate());
+  }
+  const parts = String(dateStr).split('-');
+  if (parts.length === 3) {
+    return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  }
+  return new Date(dateStr);
+}
+
+export function getPhaseForCycleDay(dayNumber) {
+  const day = Math.max(1, dayNumber);
+  if (day >= 1 && day <= 5) return PHASES.MENSTRUASI;
+  if (day >= 6 && day <= 13) return PHASES.FOLIKULER;
+  if (day >= 14 && day <= 16) return PHASES.OVULASI;
+  return PHASES.LUTEAL;
+}
+
+export function getCycleDayForDate(targetDate, hphtString = '2026-10-01', cycleLength = 28) {
+  const hpht = parseLocalDate(hphtString);
+  const target = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+  const diffDays = Math.round((target.getTime() - hpht.getTime()) / (1000 * 60 * 60 * 24));
+  return (((diffDays % cycleLength) + cycleLength) % cycleLength) + 1;
+}
+
+export function getPhaseForDay(dayNumber, cycleLength = 28) {
+  const day = ((dayNumber - 1) % cycleLength) + 1;
+  return getPhaseForCycleDay(day);
+}
+
 export function calculateCycleInfo(hphtString = '2026-10-01', cycleLength = 28, targetDate = new Date()) {
-  const hpht = new Date(hphtString);
-  const diffTime = targetDate.getTime() - hpht.getTime();
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  const hpht = parseLocalDate(hphtString);
+  const target = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+  const diffTime = target.getTime() - hpht.getTime();
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
   
   // Cycle day 1-based (mod cycleLength)
-  const currentDay = diffDays >= 0 ? (diffDays % cycleLength) + 1 : 1;
-  
-  let phase = PHASES.FOLIKULER;
-  if (currentDay >= 1 && currentDay <= 5) {
-    phase = PHASES.MENSTRUASI;
-  } else if (currentDay >= 6 && currentDay <= 13) {
-    phase = PHASES.FOLIKULER;
-  } else if (currentDay >= 14 && currentDay <= 16) {
-    phase = PHASES.OVULASI;
-  } else {
-    phase = PHASES.LUTEAL;
-  }
+  const currentDay = (((diffDays % cycleLength) + cycleLength) % cycleLength) + 1;
+  const phase = getPhaseForCycleDay(currentDay);
 
   // Next period date
   const cyclesPassed = Math.floor(diffDays / cycleLength);
@@ -82,12 +105,4 @@ export function calculateCycleInfo(hphtString = '2026-10-01', cycleLength = 28, 
     phase,
     nextPeriod: nextPeriod.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
   };
-}
-
-export function getPhaseForDay(dayNumber, cycleLength = 28) {
-  const day = ((dayNumber - 1) % cycleLength) + 1;
-  if (day >= 1 && day <= 5) return PHASES.MENSTRUASI;
-  if (day >= 6 && day <= 13) return PHASES.FOLIKULER;
-  if (day >= 14 && day <= 16) return PHASES.OVULASI;
-  return PHASES.LUTEAL;
 }

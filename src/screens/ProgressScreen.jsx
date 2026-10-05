@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import confetti from 'canvas-confetti';
 
@@ -6,12 +6,18 @@ export default function ProgressScreen() {
   const {
     data,
     consumeMie,
+    resetMieTracker,
     addWeightLog,
     addExercise,
+    resetExerciseWeek,
     updateProfile,
     toggleNotification,
-    showNotification
+    showNotification,
+    exportData,
+    importData
   } = useApp();
+
+  const fileInputRef = useRef(null);
 
   const [weightModalOpen, setWeightModalOpen] = useState(false);
   const [newWeight, setNewWeight] = useState(data.profile.currentWeight || '62.8');
@@ -31,11 +37,41 @@ export default function ProgressScreen() {
   const startWeight = Number(data.profile.startWeight) || 65.0;
   const currentWeight = Number(data.profile.currentWeight) || 62.8;
   const targetWeight = Number(data.profile.targetWeight) || 59.0;
-  const lostWeight = Math.max(0, (startWeight - currentWeight)).toFixed(1);
-  const remainingWeight = Math.max(0, (currentWeight - targetWeight)).toFixed(1);
+  const lostWeight = Math.max(0, startWeight - currentWeight).toFixed(1);
+  const remainingWeight = Math.max(0, currentWeight - targetWeight).toFixed(1);
 
   const monthlyGoal = 3.0;
   const monthlyProgressPercent = Math.min(Math.round((Number(lostWeight) / monthlyGoal) * 100), 100);
+
+  // Dynamic Chart Math for Weight Logs
+  const logs = data.weightLogs && data.weightLogs.length > 0 ? data.weightLogs : [
+    { week: 'Awal', weight: startWeight, waist: 86, date: '1 Okt' }
+  ];
+
+  const weights = logs.map((l) => Number(l.weight) || currentWeight);
+  const minW = Math.min(...weights, targetWeight) - 0.5;
+  const maxW = Math.max(...weights, startWeight) + 0.5;
+  const rangeW = maxW - minW || 1;
+
+  const points = logs.map((l, i) => {
+    const x = logs.length === 1 ? 150 : Math.round((i / (logs.length - 1)) * 300);
+    const normalizedY = (Number(l.weight) - minW) / rangeW;
+    const y = Math.round(55 - normalizedY * 42); // 13 (top) to 55 (bottom)
+    return { x, y, weight: Number(l.weight).toFixed(1), week: l.week };
+  });
+
+  const pathD = points.length === 1
+    ? `M 0,${points[0].y} L 300,${points[0].y}`
+    : points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
+
+  const areaD = points.length === 1
+    ? `M 0,${points[0].y} L 300,${points[0].y} L 300,70 L 0,70 Z`
+    : `${pathD} L 300,70 L 0,70 Z`;
+
+  // Dynamic Waist Difference
+  const initialWaist = data.weightLogs[0]?.waist || 86;
+  const currentWaist = data.profile.waistCircumference || 82;
+  const waistDiff = (currentWaist - initialWaist).toFixed(1);
 
   const handleConsumeMieClick = () => {
     if (data.mieTracker.quota <= 0) {
@@ -80,6 +116,22 @@ export default function ProgressScreen() {
     });
     setSettingsModalOpen(false);
     showNotification('Pengaturan Disimpan ⚙️', 'Target kalori dan eating window berhasil diperbarui.');
+  };
+
+  const handleFileImport = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target.result);
+        importData(json);
+      } catch (err) {
+        alert('File tidak valid atau rusak');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   return (
@@ -174,11 +226,11 @@ export default function ProgressScreen() {
           </div>
         </div>
 
-        {/* Visual SVG Line Chart for 4-Week Trend */}
+        {/* Dynamic SVG Line Chart for Weight Trend */}
         <div className="flex flex-col gap-1.5 pt-1 border-t border-surface-container-low">
           <div className="flex justify-between items-center">
             <span className="font-label-md text-xs text-on-surface font-bold">
-              Tren Penurunan (Minggu 1 - 4)
+              Tren Penurunan ({logs.length} Catatan)
             </span>
             <span className="font-label-sm text-xs text-tertiary flex items-center gap-0.5 font-semibold">
               <span className="material-symbols-outlined text-[14px]">trending_down</span>
@@ -193,25 +245,36 @@ export default function ProgressScreen() {
                   <stop offset="100%" stopColor="#b90538" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
-              <path d="M 0,15 L 100,28 L 200,45 L 300,60 L 300,70 L 0,70 Z" fill="url(#chartGradient2)" />
+              <path d={areaD} fill="url(#chartGradient2)" />
               <path
-                d="M 0,15 L 100,28 L 200,45 L 300,60"
+                d={pathD}
                 fill="none"
                 stroke="#b90538"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth="3"
               />
-              <circle cx="0" cy="15" fill="#b90538" r="4" stroke="#ffffff" strokeWidth="2" />
-              <circle cx="100" cy="28" fill="#b90538" r="4" stroke="#ffffff" strokeWidth="2" />
-              <circle cx="200" cy="45" fill="#b90538" r="4" stroke="#ffffff" strokeWidth="2" />
-              <circle cx="300" cy="60" fill="#dc2c4f" r="5" stroke="#ffffff" strokeWidth="2" />
+              {points.map((p, idx) => (
+                <circle
+                  key={idx}
+                  cx={p.x}
+                  cy={p.y}
+                  fill={idx === points.length - 1 ? '#dc2c4f' : '#b90538'}
+                  r={idx === points.length - 1 ? 5 : 4}
+                  stroke="#ffffff"
+                  strokeWidth="2"
+                />
+              ))}
             </svg>
             <div className="flex justify-between text-[10px] text-on-surface-variant font-label-sm pt-1">
-              <span>Mg 1: 65.0</span>
-              <span>Mg 2: 64.3</span>
-              <span>Mg 3: 63.5</span>
-              <span className="font-bold text-primary">Mg 4: 62.8</span>
+              {points.slice(-4).map((p, idx) => (
+                <span
+                  key={idx}
+                  className={idx === points.slice(-4).length - 1 ? 'font-bold text-primary' : ''}
+                >
+                  {p.week}: {p.weight}
+                </span>
+              ))}
             </div>
           </div>
         </div>
@@ -224,15 +287,17 @@ export default function ProgressScreen() {
             </div>
             <div>
               <p className="font-label-md text-xs text-on-surface font-bold">Lingkar Perut</p>
-              <p className="font-body-sm text-[11px] text-on-surface-variant">Turun dari 86 cm</p>
+              <p className="font-body-sm text-[11px] text-on-surface-variant">Awal {initialWaist} cm</p>
             </div>
           </div>
           <div className="text-right">
             <span className="font-headline-sm text-base text-on-surface font-bold">
-              {data.profile.waistCircumference}
+              {currentWaist}
             </span>
             <span className="font-label-sm text-xs text-on-surface-variant"> cm</span>
-            <span className="block font-label-sm text-xs text-tertiary font-bold">-4 cm ✨</span>
+            <span className="block font-label-sm text-xs text-tertiary font-bold">
+              {waistDiff <= 0 ? `${waistDiff} cm ✨` : `+${waistDiff} cm`}
+            </span>
           </div>
         </div>
 
@@ -295,21 +360,33 @@ export default function ProgressScreen() {
           </div>
         </div>
 
-        {/* Action Button */}
-        <button
-          onClick={handleConsumeMieClick}
-          disabled={data.mieTracker.quota <= 0}
-          className={`w-full py-2.5 px-4 rounded-full font-label-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${
-            data.mieTracker.quota > 0
-              ? 'bg-secondary-fixed text-on-secondary-fixed active:scale-[0.98] cursor-pointer shadow-xs'
-              : 'bg-surface-container text-on-surface-variant/60 cursor-not-allowed opacity-70'
-          }`}
-        >
-          <span className="material-symbols-outlined text-[18px]">soup_kitchen</span>
-          {data.mieTracker.quota > 0
-            ? 'Saya Makan Mie Hari Ini (Potong Jatah)'
-            : 'Jatah Periode Ini Telah Dipakai'}
-        </button>
+        {/* Action Buttons */}
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={handleConsumeMieClick}
+            disabled={data.mieTracker.quota <= 0}
+            className={`w-full py-2.5 px-4 rounded-full font-label-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+              data.mieTracker.quota > 0
+                ? 'bg-secondary-fixed text-on-secondary-fixed active:scale-[0.98] cursor-pointer shadow-xs'
+                : 'bg-surface-container text-on-surface-variant/60 cursor-not-allowed opacity-70'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[18px]">soup_kitchen</span>
+            {data.mieTracker.quota > 0
+              ? 'Saya Makan Mie Hari Ini (Potong Jatah)'
+              : 'Jatah Periode Ini Telah Dipakai'}
+          </button>
+
+          {data.mieTracker.quota <= 0 && (
+            <button
+              onClick={resetMieTracker}
+              className="w-full py-2 px-3 rounded-full bg-surface-container-low text-primary text-xs font-semibold hover:bg-surface-container flex items-center justify-center gap-1 active:scale-95 transition-all border border-outline-variant/20"
+            >
+              <span className="material-symbols-outlined text-[16px]">restart_alt</span>
+              Mulai Periode 2 Minggu Baru
+            </button>
+          )}
+        </div>
       </div>
 
       {/* F7: Ringkasan Olahraga Mingguan */}
@@ -370,13 +447,22 @@ export default function ProgressScreen() {
           })}
         </div>
 
-        <button
-          onClick={() => setExerciseModalOpen(true)}
-          className="w-full py-2.5 px-4 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
-        >
-          <span className="material-symbols-outlined text-[18px]">add_circle</span>
-          Catat Olahraga Hari Ini
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setExerciseModalOpen(true)}
+            className="flex-1 py-2.5 px-4 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+          >
+            <span className="material-symbols-outlined text-[18px]">add_circle</span>
+            Catat Olahraga
+          </button>
+          <button
+            onClick={resetExerciseWeek}
+            title="Reset ke Minggu Baru"
+            className="p-2.5 rounded-full bg-surface-container text-on-surface-variant hover:text-primary active:scale-95 transition-all"
+          >
+            <span className="material-symbols-outlined text-[18px]">restart_alt</span>
+          </button>
+        </div>
       </div>
 
       {/* F9: Pengaturan Notifikasi & Reminder */}
@@ -444,7 +530,7 @@ export default function ProgressScreen() {
         </div>
       </div>
 
-      {/* F10: Profil & Pengaturan Sistem */}
+      {/* F10: Profil, Backup & Pengaturan Sistem */}
       <div className="rounded-2xl bg-surface-container-lowest p-4 shadow-[0_4px_20px_-2px_rgba(244,63,94,0.06)] border border-outline-variant/30 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -525,6 +611,40 @@ export default function ProgressScreen() {
             <span className="material-symbols-outlined text-[14px]">cloud_done</span>
             100% Tersinkron
           </span>
+        </div>
+
+        {/* Backup & Restore Data (Export / Import JSON) */}
+        <div className="p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 flex flex-col gap-2">
+          <span className="font-label-sm text-xs font-bold text-on-surface flex items-center gap-1">
+            <span className="material-symbols-outlined text-[16px] text-primary">backup</span>
+            Cadangan & Pemulihan Data (Offline-Proof)
+          </span>
+          <p className="text-[11px] text-on-surface-variant">
+            Unduh data Anda ke file JSON atau pulihkan saat ganti HP baru.
+          </p>
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <button
+              onClick={exportData}
+              className="py-2 px-3 rounded-xl bg-surface-container text-on-surface font-label-sm text-xs font-bold flex items-center justify-center gap-1 hover:bg-surface-container-high active:scale-95 transition-all"
+            >
+              <span className="material-symbols-outlined text-[16px]">download</span>
+              Export Backup
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="py-2 px-3 rounded-xl bg-primary-fixed text-on-primary-fixed font-label-sm text-xs font-bold flex items-center justify-center gap-1 hover:bg-primary-fixed-dim active:scale-95 transition-all"
+            >
+              <span className="material-symbols-outlined text-[16px]">upload</span>
+              Import Backup
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileImport}
+              accept=".json"
+              className="hidden"
+            />
+          </div>
         </div>
       </div>
 

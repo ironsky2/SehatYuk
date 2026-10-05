@@ -75,7 +75,8 @@ const defaultState = {
       duration: 25,
       intensity: 'Sedang',
       caloriesBurned: 75,
-      time: '16:30'
+      time: '16:30',
+      date: '2026-10-05'
     }
   ],
   exerciseDaysCompleted: 4, // 4 dari 5 hari target
@@ -121,9 +122,10 @@ export function AppProvider({ children }) {
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [inAppAlert, setInAppAlert] = useState(null); // { type, message }
+  const [inAppAlert, setInAppAlert] = useState(null); // { title, body, time }
   const [activeTab, setActiveTab] = useState('beranda'); // 'beranda' | 'makan' | 'if-dan-puasa' | 'siklus' | 'progress'
   const [quickMealModalOpen, setQuickMealModalOpen] = useState(false);
+  const [hasAlertedOverLimit, setHasAlertedOverLimit] = useState(false);
 
   // Sync state to LocalStorage
   useEffect(() => {
@@ -153,19 +155,22 @@ export function AppProvider({ children }) {
     };
   }, []);
 
-  // Check calories alert whenever meals change
+  // Check calories alert whenever meals change (single trigger, prevent spam loop)
   const totalCalories = data.meals.reduce((sum, meal) => sum + (Number(meal.calories) || 0), 0);
   const calorieTarget = data.profile.dailyCalorieTarget || 1300;
   const isOverCalorieLimit = totalCalories > calorieTarget;
 
   useEffect(() => {
-    if (isOverCalorieLimit) {
+    if (isOverCalorieLimit && !hasAlertedOverLimit) {
       showNotification(
         '⚠️ Peringatan Kalori!',
         `Kalori hari ini sudah melebihi target (${totalCalories.toLocaleString()} / ${calorieTarget.toLocaleString()} kkal). Istirahatkan pencernaan ya Bunda 🌸`
       );
+      setHasAlertedOverLimit(true);
+    } else if (!isOverCalorieLimit && hasAlertedOverLimit) {
+      setHasAlertedOverLimit(false);
     }
-  }, [totalCalories, calorieTarget, isOverCalorieLimit]);
+  }, [totalCalories, calorieTarget, isOverCalorieLimit, hasAlertedOverLimit]);
 
   function triggerSyncToast(message) {
     setIsSyncing(true);
@@ -275,6 +280,22 @@ export function AppProvider({ children }) {
     return true;
   };
 
+  const resetMieTracker = () => {
+    const today = new Date();
+    const twoWeeksLater = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const periodStr = `${today.getDate()} ${today.toLocaleDateString('id-ID', { month: 'short' })} - ${twoWeeksLater.getDate()} ${twoWeeksLater.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' })}`;
+    setData((prev) => ({
+      ...prev,
+      mieTracker: {
+        quota: 1,
+        consumed: 0,
+        period: periodStr,
+        lastEaten: prev.mieTracker.lastEaten || 'Belum ada'
+      }
+    }));
+    showNotification('Siklus Mie Baru Dimulai 🍜', `Periode baru (${periodStr}) aktif dengan 1 kuota mie.`);
+  };
+
   const addWeightLog = (weight, waist) => {
     const numWeight = parseFloat(weight);
     const numWaist = parseFloat(waist);
@@ -303,6 +324,7 @@ export function AppProvider({ children }) {
   };
 
   const addExercise = (exercise) => {
+    const todayStr = new Date().toISOString().split('T')[0];
     const item = {
       id: Date.now(),
       name: exercise.name,
@@ -310,14 +332,20 @@ export function AppProvider({ children }) {
       duration: Number(exercise.duration) || 20,
       intensity: exercise.intensity || 'Sedang',
       caloriesBurned: Number(exercise.caloriesBurned) || 60,
-      time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':')
+      time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':'),
+      date: todayStr
     };
 
-    setData((prev) => ({
-      ...prev,
-      exercises: [item, ...prev.exercises],
-      exerciseDaysCompleted: Math.min(prev.exerciseDaysCompleted + 1, 5)
-    }));
+    setData((prev) => {
+      const hadExerciseToday = prev.exercises.some((e) => e.date === todayStr);
+      const newDaysCount = hadExerciseToday ? prev.exerciseDaysCompleted : Math.min(prev.exerciseDaysCompleted + 1, 5);
+
+      return {
+        ...prev,
+        exercises: [item, ...prev.exercises],
+        exerciseDaysCompleted: newDaysCount
+      };
+    });
 
     confetti({
       particleCount: 30,
@@ -325,6 +353,14 @@ export function AppProvider({ children }) {
       origin: { y: 0.75 },
       colors: ['#00855b', '#4edea3']
     });
+  };
+
+  const resetExerciseWeek = () => {
+    setData((prev) => ({
+      ...prev,
+      exerciseDaysCompleted: 0
+    }));
+    showNotification('Target Olahraga Direset 🏃', 'Target 5 hari olahraga minggu baru telah dimulai.');
   };
 
   const updateProfile = (fields) => {
@@ -361,6 +397,35 @@ export function AppProvider({ children }) {
     }));
   };
 
+  const exportData = () => {
+    const jsonStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `sehat_yuk_backup_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showNotification('Backup Berhasil 💾', 'File data JSON telah diunduh ke perangkat.');
+  };
+
+  const importData = (importedJson) => {
+    try {
+      const parsed = typeof importedJson === 'string' ? JSON.parse(importedJson) : importedJson;
+      if (!parsed.profile || !parsed.meals) {
+        throw new Error('Format data tidak valid');
+      }
+      setData(parsed);
+      showNotification('Data Dipulihkan 🔄', 'Semua riwayat kalori, berat badan, dan profil berhasil dimuat.');
+      return true;
+    } catch (err) {
+      alert('Gagal memulihkan data: Format file JSON tidak sesuai.');
+      return false;
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -382,14 +447,18 @@ export function AppProvider({ children }) {
         addWaterGlass,
         resetWater,
         consumeMie,
+        resetMieTracker,
         addWeightLog,
         addExercise,
+        resetExerciseWeek,
         updateProfile,
         togglePuasaSunnah,
         setFastingMode,
         toggleNotification,
         requestNotificationPermission,
-        showNotification
+        showNotification,
+        exportData,
+        importData
       }}
     >
       {children}

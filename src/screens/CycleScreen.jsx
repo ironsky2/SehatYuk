@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { calculateCycleInfo, getPhaseForDay, PHASES } from '../utils/hormoneCycle';
+import { calculateCycleInfo, getCycleDayForDate, getPhaseForCycleDay, PHASES } from '../utils/hormoneCycle';
 import confetti from 'canvas-confetti';
 
 export default function CycleScreen() {
@@ -30,22 +30,42 @@ export default function CycleScreen() {
     showNotification('Siklus Diperbarui 🌸', `HPHT dicatat ${newHpht} (Siklus ${newCycleLength} hari). Kalender otomatis terupdate.`);
   };
 
-  // Calendar generation for October 2026
-  const daysInMonth = 31;
-  const startDayOfWeek = 4; // Kamis
+  // Dynamic calendar generation based on currentMonthOffset
+  const today = new Date();
+  const baseMonthDate = new Date(today.getFullYear(), today.getMonth() + currentMonthOffset, 1);
+  const displayYear = baseMonthDate.getFullYear();
+  const displayMonth = baseMonthDate.getMonth();
+  const monthName = baseMonthDate.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+
+  const daysInMonth = new Date(displayYear, displayMonth + 1, 0).getDate();
+  const startDayOfWeek = new Date(displayYear, displayMonth, 1).getDay(); // 0 = Min, 1 = Sen ...
+  const prevMonthDays = new Date(displayYear, displayMonth, 0).getDate();
+
   const calendarCells = [];
 
+  // Padding previous month
   for (let i = 0; i < startDayOfWeek; i++) {
-    calendarCells.push({ dayNumber: null, isCurrentMonth: false, label: 27 + i });
+    const label = prevMonthDays - startDayOfWeek + 1 + i;
+    calendarCells.push({ dayNumber: null, isCurrentMonth: false, label });
   }
 
+  // Current month days
   for (let d = 1; d <= daysInMonth; d++) {
-    const phase = getPhaseForDay(d, data.profile.cycleLength);
+    const cellDate = new Date(displayYear, displayMonth, d);
+    const cycleDay = getCycleDayForDate(cellDate, data.profile.hpht, data.profile.cycleLength);
+    const phase = getPhaseForCycleDay(cycleDay);
+    const isToday =
+      d === today.getDate() &&
+      displayMonth === today.getMonth() &&
+      displayYear === today.getFullYear();
+
     calendarCells.push({
       dayNumber: d,
+      cellDate,
+      cycleDay,
       isCurrentMonth: true,
       phase,
-      isToday: d === 8
+      isToday
     });
   }
 
@@ -138,46 +158,31 @@ export default function CycleScreen() {
             </div>
 
             <div className="flex items-center justify-between text-[10px] font-label-sm text-on-surface-variant pt-0.5">
-              <span className="flex items-center gap-1 font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary-container" /> Haid
-              </span>
-              <span className="flex items-center gap-1 font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-tertiary-fixed-dim" /> Folikuler (Aktif)
-              </span>
-              <span className="flex items-center gap-1 font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-secondary-container" /> Ovulasi
-              </span>
-              <span className="flex items-center gap-1 font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-secondary-fixed" /> Luteal
-              </span>
+              <span>Perkiraan Haid Berikutnya:</span>
+              <span className="font-bold text-on-surface">{cycleInfo.nextPeriod}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Rekomendasi 3 Pilar Fase Hari Ini */}
+      {/* 3 Pilar Panduan Kesehatan Postpartum & Fase Siklus */}
       <div className="flex flex-col gap-2.5">
-        <div className="flex items-center justify-between px-1">
-          <h2 className="font-headline-sm text-base text-on-surface font-bold">
-            Rekomendasi 3 Pilar Hari Ini
-          </h2>
-          <span className="font-label-sm text-xs text-tertiary font-bold flex items-center gap-1">
-            <span className="material-symbols-outlined text-[14px]">verified</span> Berbasis Sains
-          </span>
-        </div>
+        <h3 className="font-headline-sm text-sm text-on-surface font-bold px-1">
+          Panduan Ritme Tubuh Bunda
+        </h3>
 
-        {/* Pilar 1: Makanan */}
+        {/* Pilar 1: Makanan & Gizi */}
         <div className="bg-surface-container-lowest rounded-2xl p-3.5 shadow-sm border border-outline-variant/30 flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-tertiary-fixed/30 text-tertiary flex items-center justify-center flex-shrink-0 mt-0.5">
+          <div className="w-10 h-10 rounded-xl bg-tertiary-fixed text-tertiary flex items-center justify-center flex-shrink-0 mt-0.5">
             <span className="material-symbols-outlined text-[20px]">nutrition</span>
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between">
               <p className="font-label-lg text-xs font-bold text-on-surface">
-                Pilar 1: Nutrisi & Makan
+                Pilar 1: Nutrisi & Piring Sehat
               </p>
-              <span className="font-label-sm text-[10px] text-tertiary font-bold px-2 py-0.5 bg-tertiary-fixed/30 rounded-full">
-                Metabolisme Cepat
+              <span className="font-label-sm text-[10px] text-tertiary font-bold px-2 py-0.5 bg-tertiary-fixed/40 rounded-full">
+                Fokus Metabolisme
               </span>
             </div>
             <p className="font-body-sm text-xs text-on-surface-variant mt-1 leading-snug">
@@ -186,15 +191,15 @@ export default function CycleScreen() {
           </div>
         </div>
 
-        {/* Pilar 2: Olahraga */}
+        {/* Pilar 2: Olahraga & Gerak */}
         <div className="bg-surface-container-lowest rounded-2xl p-3.5 shadow-sm border border-outline-variant/30 flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-secondary-fixed/50 text-secondary flex items-center justify-center flex-shrink-0 mt-0.5">
-            <span className="material-symbols-outlined text-[20px]">fitness_center</span>
+          <div className="w-10 h-10 rounded-xl bg-secondary-fixed text-secondary flex items-center justify-center flex-shrink-0 mt-0.5">
+            <span className="material-symbols-outlined text-[20px]">directions_run</span>
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between">
               <p className="font-label-lg text-xs font-bold text-on-surface">
-                Pilar 2: Olahraga & Gerak
+                Pilar 2: Olahraga Ramah Ibu
               </p>
               <span className="font-label-sm text-[10px] text-secondary font-bold px-2 py-0.5 bg-secondary-fixed rounded-full">
                 Stamina Naik
@@ -260,19 +265,29 @@ export default function CycleScreen() {
             <span className="material-symbols-outlined text-primary text-[22px]">
               calendar_month
             </span>
-            <h3 className="font-headline-sm text-base font-bold text-on-surface">
-              Oktober 2026
+            <h3 className="font-headline-sm text-base font-bold text-on-surface capitalize">
+              {monthName}
             </h3>
           </div>
           <div className="flex items-center gap-1">
             <button
-              onClick={() => showNotification('Info Kalender', 'Menampilkan siklus bulan berjalan.')}
+              onClick={() => setCurrentMonthOffset((prev) => prev - 1)}
+              aria-label="Bulan Sebelumnya"
               className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container active:scale-95"
             >
               <span className="material-symbols-outlined text-[18px]">chevron_left</span>
             </button>
+            {currentMonthOffset !== 0 && (
+              <button
+                onClick={() => setCurrentMonthOffset(0)}
+                className="px-2 py-0.5 text-[11px] font-label-sm rounded-full bg-secondary-fixed text-on-secondary-fixed font-bold active:scale-95"
+              >
+                Hari Ini
+              </button>
+            )}
             <button
-              onClick={() => showNotification('Info Kalender', 'Menampilkan perkiraan siklus bulan depan.')}
+              onClick={() => setCurrentMonthOffset((prev) => prev + 1)}
+              aria-label="Bulan Berikutnya"
               className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container active:scale-95"
             >
               <span className="material-symbols-outlined text-[18px]">chevron_right</span>
@@ -313,7 +328,7 @@ export default function CycleScreen() {
                     ? 'bg-tertiary-container text-on-tertiary font-extrabold shadow-sm ring-2 ring-tertiary-fixed scale-105'
                     : phase.colorClass
                 }`}
-                title={`Hari ${dayNumber} - ${phase.name}`}
+                title={`Hari ${dayNumber} - ${phase.name} (Siklus hari ke-${cell.cycleDay})`}
               >
                 <span className="relative z-10">{dayNumber}</span>
                 {isToday && (
@@ -378,10 +393,10 @@ export default function CycleScreen() {
                 <span className="text-2xl">{selectedDayDetail.phase.emoji}</span>
                 <div>
                   <h4 className="font-headline-sm font-bold text-sm text-on-surface">
-                    {selectedDayDetail.dayNumber} Oktober 2026
+                    {selectedDayDetail.dayNumber} {monthName}
                   </h4>
                   <span className="text-xs text-on-surface-variant font-medium">
-                    Fase {selectedDayDetail.phase.name} ({selectedDayDetail.phase.badge})
+                    Fase {selectedDayDetail.phase.name} (Hari ke-{selectedDayDetail.cycleDay} Siklus)
                   </span>
                 </div>
               </div>

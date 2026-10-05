@@ -26,13 +26,25 @@ export default function DashboardScreen() {
     setPrayerTimes(getPrayerTimesForDate(new Date(), data.profile.coords.lat, data.profile.coords.lng));
   }, [data.profile.coords]);
 
-  // Real-time ticking countdown to Maghrib (Buka Puasa)
+  // Real-time ticking countdown to Imsak or Maghrib
   useEffect(() => {
     const updateCountdown = () => {
       const now = new Date();
+      const imsakDate = prayerTimes.raw.imsak;
       const maghribDate = prayerTimes.raw.maghrib;
-      let diff = maghribDate.getTime() - now.getTime();
 
+      if (now < imsakDate) {
+        let diff = imsakDate.getTime() - now.getTime();
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        setCountdownText(
+          `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')} (Imsak)`
+        );
+        return;
+      }
+
+      let diff = maghribDate.getTime() - now.getTime();
       if (diff <= 0) {
         setCountdownText('Alhamdulillah Buka!');
         return;

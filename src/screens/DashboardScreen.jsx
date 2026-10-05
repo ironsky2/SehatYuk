@@ -131,7 +131,7 @@ export default function DashboardScreen() {
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {data.profile.isNursing && (
+          {data.profile.isNursing ? (
             <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed shadow-xs">
               <span
                 className="material-symbols-outlined text-[15px]"
@@ -140,6 +140,16 @@ export default function DashboardScreen() {
                 child_care
               </span>
               <span className="font-label-sm text-xs font-semibold">Menyusui Ramah</span>
+            </div>
+          ) : (
+            <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed shadow-xs">
+              <span
+                className="material-symbols-outlined text-[15px]"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+              >
+                fitness_center
+              </span>
+              <span className="font-label-sm text-xs font-semibold">Defisit Kalori Terarah</span>
             </div>
           )}
           <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed shadow-xs">
@@ -188,7 +198,7 @@ export default function DashboardScreen() {
             <h2 className="font-headline-sm text-headline-sm text-on-surface font-bold">Pola Energi Harian</h2>
           </div>
           <span className="font-label-sm text-xs text-tertiary font-semibold bg-tertiary-fixed/30 px-2.5 py-0.5 rounded-full">
-            Sesuai Ritme Laktasi
+            {data.profile.isNursing ? 'Sesuai Ritme Laktasi' : 'Defisit Terarah'}
           </span>
         </div>
 

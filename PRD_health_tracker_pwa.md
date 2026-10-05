@@ -10,7 +10,7 @@
 Aplikasi PWA personal untuk perempuan Indonesia yang ingin menurunkan berat badan dengan pendekatan **holistik** — menggabungkan defisit kalori, Intermittent Fasting, puasa Senin-Kamis, dan siklus hormon bulanan — dalam satu platform yang mudah dipakai dari HP.
 
 ### Target User
-**Persona:** Ibu muda usia 30 tahun, punya bayi, ekonomi menengah, memasak mengikuti keluarga, tidak punya banyak waktu, akses HP setiap saat.
+**Persona:** Perempuan / Ibu muda usia 30 tahun, **tidak menyusui (non-laktasi)**, fokus penurunan berat badan & defisit kalori seimbang, ekonomi menengah, memasak mengikuti keluarga, tidak punya banyak waktu, akses HP setiap saat.
 
 ### Tujuan Utama
 - Bantu user mencapai target turun BB 3 kg/bulan
@@ -128,13 +128,18 @@ Komponen:
 ### F5 — Kalender Fase Hormon 🌸
 
 **Fitur:**
-- Input: HPHT (Hari Pertama Haid Terakhir) + panjang siklus
-- Auto-hitung fase per hari: Menstruasi / Folikuler / Ovulasi / Luteal
+- Input: HPHT (Hari Pertama Haid Terakhir) + Tanggal Selesai Haid + panjang siklus
+- **Data Siklus Terkini Pengguna:**
+  - Mulai Haid (HPHT): **23 September 2026**
+  - Selesai Haid: **1 Oktober 2026** (durasi menstruasi: 9 hari)
+  - Panjang Siklus Rata-rata: **28 hari**
+  - Posisi saat ini (5 Oktober 2026): **Hari ke-13 Siklus** (Fase Folikuler akhir / transisi Ovulasi — energi prima, fokus defisit kalori & latihan aktif)
+- Auto-hitung fase per hari: Menstruasi (hari 1–9) / Folikuler (hari 10–13) / Ovulasi (hari 14–16) / Luteal (hari 17–28)
 - Kalender bulanan dengan warna per fase:
-  - 🔴 Merah: Menstruasi
-  - 🌱 Hijau muda: Folikuler
-  - ⚡ Kuning: Ovulasi
-  - 🌙 Ungu muda: Luteal
+  - 🔴 Merah: Menstruasi (23 Sept – 1 Okt)
+  - 🌱 Hijau muda: Folikuler (Hari 10–13)
+  - ⚡ Kuning: Ovulasi (Hari 14–16)
+  - 🌙 Ungu muda: Luteal (Hari 17–28)
 - Tap tanggal → lihat tips makan, olahraga, & mood untuk fase tersebut
 - Auto-reminder ganti strategi saat berganti fase
 
@@ -212,16 +217,17 @@ Semua push notification bisa dikustomisasi on/off per kategori:
 ### F10 — Profil & Pengaturan ⚙️
 
 **Data Profil:**
-- Nama, foto (dari Google)
-- Tinggi badan, berat badan awal, target berat
-- Usia → auto-hitung BMR & TDEE
-- HPHT & panjang siklus haid
+- Nama, foto (dari Google / custom avatar)
+- Status Laktasi: **Tidak Menyusui (Non-Laktasi)** — perhitungan kalori berfokus pada defisit fat loss murni tanpa buffer laktasi.
+- Tinggi badan, berat badan awal (65 kg), target berat (59 kg)
+- Usia (30 tahun) → auto-hitung BMR (~1.380 kkal) & TDEE (~1.650 kkal)
+- HPHT: **23 September 2026** | Selesai Haid: **1 Oktober 2026** (panjang siklus 28 hari)
 - Eating window IF (default 11:00–19:00)
-- Waktu Maghrib kota (untuk buka puasa)
+- Waktu Maghrib kota (untuk buka puasa via GPS offline)
 
 **Target Kalori:**
-- Auto-dihitung dari BMR + aktivitas
-- Bisa di-override manual
+- Target harian: **1.300 kkal/hari** (defisit terarah, aman, dan berenergi)
+- Bisa di-override manual oleh pengguna
 
 ---
 
@@ -309,5 +315,8 @@ Semua pertanyaan desain telah diputuskan dan disetujui:
 | **Nama Aplikasi** | **"Sehat Yuk!"** | Ditampilkan di PWA manifest, header aplikasi, dan notifikasi. |
 | **Waktu Maghrib & Imsak** | **Deteksi Lokasi Otomatis (GPS) + Kalkulasi Offline** | Menggunakan Geolocation API sekali saat setup, koordinat disimpan di perangkat, dan waktu dihitung secara astronomis memakai pustaka `adhan` (tanpa perlu API external atau kuota). Disertakan fallback pemilihan kota manual jika izin GPS ditolak. |
 | **Dukungan Offline** | **Full Offline Mode** | Log makan, timer, dan status harian dapat dicatat saat offline. Memanfaatkan Firestore Offline Persistence + Service Worker Cache-First untuk aset statis. Auto-sync saat kembali online. |
+| **Status Pengguna & Laktasi** | **Tidak Menyusui (Non-Laktasi)** | Formula kalori difokuskan pada defisit fat loss murni (1.300 kkal/hari) tanpa kebutuhan tambahan kalori menyusui. |
+| **Data Siklus Menstruasi Aktual** | **Mulai 23 Sept — Selesai 1 Okt 2026** | Durasi haid 9 hari, siklus 28 hari, fase otomatis dihitung dinamis (per 5 Okt berada pada hari ke-13, Fase Folikuler akhir). |
+| **Sistem Notifikasi & Bunyi Bel** | **Web Audio API Chime + Service Worker Push** | Notifikasi berbunyi bel alami (*pleasant harmonic chime*) 100% offline dan muncul di luar aplikasi (*system tray / lockscreen* perangkat). |
 | **Cakupan Proyek** | **Cukup sampai Dokumen PRD Final** | Tidak dilanjutkan ke fase coding/development maupun update Google Tasks lebih lanjut. Seluruh kebutuhan dan arsitektur telah terangkum lengkap dalam dokumen PRD ini. |
 

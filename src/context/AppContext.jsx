@@ -1,26 +1,29 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
+import { triggerSystemNotification, playNotificationSound } from '../utils/notificationSound';
 
-const STORAGE_KEY = 'sehat_yuk_app_data_v1';
+const STORAGE_KEY = 'sehat_yuk_app_data_v2';
 
 const defaultState = {
   profile: {
     name: 'Bunda Sarah',
     avatar: '/avatar.png',
     age: 30,
-    isNursing: true,
+    isNursing: false, // Tidak menyusui sesuai update PRD
     height: 158,
     startWeight: 65.0,
     currentWeight: 62.8,
     targetWeight: 59.0,
     waistCircumference: 82,
-    hpht: '2026-10-01',
+    hpht: '2026-09-23', // Haid mulai 23 Sept
+    periodEnd: '2026-10-01', // Selesai 1 Okt
+    periodDuration: 9,
     cycleLength: 28,
     ifStart: '11:00',
     ifEnd: '19:00',
     dailyCalorieTarget: 1300,
-    bmr: 1450,
-    tdee: 1800,
+    bmr: 1380,
+    tdee: 1650,
     city: 'Jakarta Selatan',
     coords: { lat: -6.2615, lng: 106.8106 }
   },
@@ -37,7 +40,7 @@ const defaultState = {
     },
     {
       id: 2,
-      name: 'Oatmeal kurma & susu almond laktasi',
+      name: 'Oatmeal buah & susu almond',
       calories: 200,
       timeCategory: 'Makan 1',
       time: '12:30',
@@ -70,11 +73,11 @@ const defaultState = {
   exercises: [
     {
       id: 1,
-      name: 'Jalan Santai + Baby Stroller',
-      type: 'Jalan Santai',
-      duration: 25,
+      name: 'Brisk Walking & Power Walk',
+      type: 'Brisk Walking',
+      duration: 30,
       intensity: 'Sedang',
-      caloriesBurned: 75,
+      caloriesBurned: 110,
       time: '16:30',
       date: '2026-10-05'
     }
@@ -94,7 +97,7 @@ const defaultState = {
   ],
   fastingMode: 'sunnah', // 'sunnah' or 'if'
   isPuasaSunnahActive: true,
-  streaks: [true, true, true, true, true, false], // 6 slots: Sen1, Kam1, Sen2, Kam2, Sen3, Kam3
+  streaks: [true, true, true, true, true, false],
   notifications: {
     eatingWindow: true,
     puasaSunnah: true,
@@ -112,7 +115,18 @@ export function AppProvider({ children }) {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        // Ensure profile updates from latest requirements
+        return {
+          ...parsed,
+          profile: {
+            ...parsed.profile,
+            isNursing: false,
+            hpht: parsed.profile?.hpht || '2026-09-23',
+            periodEnd: parsed.profile?.periodEnd || '2026-10-01',
+            periodDuration: 9
+          }
+        };
       }
     } catch (e) {
       console.error('Failed to load stored state:', e);
@@ -122,8 +136,8 @@ export function AppProvider({ children }) {
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [inAppAlert, setInAppAlert] = useState(null); // { title, body, time }
-  const [activeTab, setActiveTab] = useState('beranda'); // 'beranda' | 'makan' | 'if-dan-puasa' | 'siklus' | 'progress'
+  const [inAppAlert, setInAppAlert] = useState(null);
+  const [activeTab, setActiveTab] = useState('beranda');
   const [quickMealModalOpen, setQuickMealModalOpen] = useState(false);
   const [hasAlertedOverLimit, setHasAlertedOverLimit] = useState(false);
 
@@ -155,7 +169,7 @@ export function AppProvider({ children }) {
     };
   }, []);
 
-  // Check calories alert whenever meals change (single trigger, prevent spam loop)
+  // Check calories alert whenever meals change (single trigger, with outside-app push & chime sound)
   const totalCalories = data.meals.reduce((sum, meal) => sum + (Number(meal.calories) || 0), 0);
   const calorieTarget = data.profile.dailyCalorieTarget || 1300;
   const isOverCalorieLimit = totalCalories > calorieTarget;
@@ -179,25 +193,22 @@ export function AppProvider({ children }) {
     }, 1200);
   }
 
+  // Dual notification: In-App visual banner + Outside application system tray & offline bell chime sound
   function showNotification(title, body) {
-    setInAppAlert({ title, body, time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) });
-    if ('Notification' in window && Notification.permission === 'granted') {
-      try {
-        new Notification(title, {
-          body,
-          icon: '/logo.png'
-        });
-      } catch (e) {
-        console.warn('Native notification failed:', e);
-      }
-    }
+    const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    setInAppAlert({ title, body, time: timeStr });
+    triggerSystemNotification(title, body);
   }
 
   function requestNotificationPermission() {
+    playNotificationSound();
     if ('Notification' in window) {
       Notification.requestPermission().then((permission) => {
         if (permission === 'granted') {
-          showNotification('Notifikasi Diaktifkan 🌸', 'Bunda akan menerima pengingat sahur, buka, kalori, dan IF tepat waktu.');
+          showNotification(
+            'Notifikasi Aktif 🔔',
+            'Suara bel dan pengingat di luar aplikasi telah aktif. Bunda akan diingatkan tepat waktu!'
+          );
         }
       });
     }
@@ -328,7 +339,7 @@ export function AppProvider({ children }) {
     const item = {
       id: Date.now(),
       name: exercise.name,
-      type: exercise.type || 'Jalan Santai',
+      type: exercise.type || 'Brisk Walking',
       duration: Number(exercise.duration) || 20,
       intensity: exercise.intensity || 'Sedang',
       caloriesBurned: Number(exercise.caloriesBurned) || 60,
@@ -457,6 +468,7 @@ export function AppProvider({ children }) {
         toggleNotification,
         requestNotificationPermission,
         showNotification,
+        playNotificationSound,
         exportData,
         importData
       }}

@@ -7,7 +7,7 @@ export default function CycleScreen() {
   const { data, updateProfile, showNotification } = useApp();
 
   const [hphtModalOpen, setHphtModalOpen] = useState(false);
-  const [newHpht, setNewHpht] = useState(data.profile.hpht || '2026-10-01');
+  const [newHpht, setNewHpht] = useState(data.profile.hpht || '2026-09-23');
   const [newCycleLength, setNewCycleLength] = useState(data.profile.cycleLength || 28);
   const [selectedDayDetail, setSelectedDayDetail] = useState(null);
   const [recipeModalOpen, setRecipeModalOpen] = useState(false);
@@ -353,7 +353,7 @@ export default function CycleScreen() {
                 🔴
               </span>
               <span className="text-on-surface-variant">
-                <strong className="text-on-surface">Menstruasi</strong> (Hari 1-5)
+                <strong className="text-on-surface">Menstruasi</strong> (Hari 1-9: 23 Sept - 1 Okt)
               </span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -361,7 +361,7 @@ export default function CycleScreen() {
                 🌱
               </span>
               <span className="text-on-surface-variant">
-                <strong className="text-on-surface">Folikuler</strong> (Hari 6-13)
+                <strong className="text-on-surface">Folikuler</strong> (Hari 10-13)
               </span>
             </div>
             <div className="flex items-center gap-1.5">

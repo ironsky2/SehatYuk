@@ -173,12 +173,14 @@ export default function Header() {
 
             <button
               onClick={() => {
-                showNotification('Tes Notifikasi Berhasil! 🌸', 'Pengingat otomatis Sehat Yuk! berjalan normal di perangkat Anda.');
+                requestNotificationPermission();
+                showNotification('Tes Notifikasi & Bunyi Bel 🔔', 'Pengingat luar aplikasi Sehat Yuk! bersuara dan muncul di notifikasi HP Bunda.');
                 setNotifModalOpen(false);
               }}
-              className="mt-1 w-full py-2.5 bg-primary text-on-primary rounded-full font-label-md font-semibold active:scale-98 transition-transform"
+              className="mt-1 w-full py-2.5 bg-primary text-on-primary rounded-full font-label-md font-semibold active:scale-98 transition-transform flex items-center justify-center gap-1.5 shadow-sm"
             >
-              Uji Notifikasi Sekarang
+              <span className="material-symbols-outlined text-[18px]">volume_up</span>
+              <span>Uji Bunyi & Notifikasi Luar Aplikasi</span>
             </button>
           </div>
         </div>

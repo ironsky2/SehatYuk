@@ -18,25 +18,28 @@ Aplikasi PWA personal untuk perempuan Indonesia yang ingin menurunkan berat bada
 - Beri alert real-time jika kalori melebihi batas
 - Track IF timer, puasa Senin-Kamis, dan fase hormon secara otomatis (Siklus: Haid 23 Sept - 1 Okt 2026)
 - Waktu Maghrib akurat otomatis berdasarkan lokasi GPS
-- Full offline support (tetap bisa log & cek timer tanpa internet, auto-sync ke Google/Firestore saat online)
+- Full offline support (tetap bisa log & cek timer tanpa internet, auto-sync ke Supabase saat online)
+- Google Authentication aman dengan proteksi data Row Level Security (RLS)
+- Kondisi Awal Bersih (Clean State): Tanpa data dummy sehingga user langsung menginput catatan makan, air, dan timbangan riil mereka sendiri.
 
 ---
 
-## 2. Tech Stack & Arsitektur Offline
+## 2. Tech Stack & Arsitektur Keamanan
 
 | Layer | Teknologi |
 |---|---|
 | Frontend | React 18 + Vite |
 | Styling | Tailwind CSS (pink/rose theme) |
-| State Management | Zustand |
-| Backend & DB | Firebase (Firestore with Offline Persistence + Auth) |
-| Auth | Google Sign-In (Firebase Auth) |
-| Offline Storage | IndexedDB / Firestore Cache & Service Worker Cache-First |
+| State Management | React Context + LocalStorage Offline Persistence |
+| Backend & DB | Supabase (PostgreSQL with Row Level Security / RLS) |
+| Auth | Google Sign-In (OAuth 2.0 via Supabase Auth) |
+| Keamanan Data | Row Level Security (RLS) — Setiap baris data terkunci spesifik hanya untuk `auth.uid()` user |
+| Offline Storage | LocalStorage + Service Worker Cache-First (PWA) |
 | Waktu Sholat/Maghrib | Geolocation API + `adhan` (kalkulasi astronomi offline presisi lokal) |
-| Push Notifications | Firebase Cloud Messaging (FCM) + Web Notification API |
+| Push Notifications | Web Audio API (Pleasant Chime) + Web Notification API (Background OS) |
 | PWA Engine | `vite-plugin-pwa` (Workbox Service Worker, Web App Manifest) |
-| Hosting | Firebase Hosting |
-| Charts | Recharts |
+| Hosting | Supabase / Vercel / Netlify / PWA Hosting |
+| Charts | Dynamic SVG Data Visualization |
 
 
 ---
@@ -232,23 +235,35 @@ Semua push notification bisa dikustomisasi on/off per kategori:
 
 ---
 
-## 4. Arsitektur Data (Firestore)
+### F11 — Autentikasi Google & Sinkronisasi Cloud 🔐
 
-```
-users/{userId}
-  ├── profile: { nama, tinggi, beratAwal, targetBerat, usia, isNursing: false, kondisiLaktasi: 'tidak_menyusui', hpht: '2026-09-23', periodEnd: '2026-10-01', periodDuration: 9, siklusPanjang: 28, ... }
-  ├── dailyLogs/{tanggal}
-  │   ├── meals: [{ nama, kalori, waktu, porsi }]
-  │   ├── exercise: [{ jenis, durasi, intensitas, kaloriTerbakar }]
-  │   ├── fasting: { ifStart, ifEnd, puasaSenKam: boolean }
-  │   └── totalKalori: number
-  ├── weightLogs/{tanggal}
-  │   ├── beratBadan: number
-  │   └── lingkarPerut: number
-  └── mieLogs/{periodeId}
-      ├── jatah: 1
-      ├── terpakai: 0
-      └── tanggalPakai: date | null
+**Fitur:**
+- **Google Sign-In (OAuth 2.0 via Supabase):** Login praktis sekali klik dengan akun Google pengguna.
+- **Profil Otomatis:** Nama, foto profil, dan email otomatis tersinkronisasi dari Google.
+- **Row Level Security (RLS):** Seluruh data kesehatan (makanan, minum, siklus, timbangan) dienkripsi & dilindungi di level database PostgreSQL. Hanya pemilik akun yang diizinkan melakukan operasi `SELECT`, `INSERT`, `UPDATE`, atau `DELETE`.
+- **Mode Tamu / Offline-First:** Pengguna tetap dapat memakai seluruh fitur secara instan tanpa login (data tersimpan di HP/LocalStorage). Saat login Google dilakukan, data langsung tersinkronkan ke cloud.
+
+---
+
+## 4. Arsitektur Data (Supabase PostgreSQL + RLS) & Status Data Bersih (Clean State)
+
+### Kebijakan Data Bersih (No Dummy Data)
+- **Tanpa Data Dummy:** Seluruh data simulasi/dummy bawaan (makan, minum air, olahraga, dan timbangan awal) **dibersihkan sepenuhnya**.
+- **Fresh Start:** Pengguna memulai aplikasi dengan riwayat bersih (*0 makanan, 0 air, 0 olahraga, 0 timbangan log*) agar siap diisi dengan data aktual dan akurat dari keseharian pengguna sendiri.
+
+### Skema Database Relasional (Supabase)
+```sql
+-- 1. profiles: data profil pengguna terlindungi RLS (auth.uid() = id)
+profiles (id UUID PRIMARY KEY, name TEXT, is_nursing BOOLEAN, period_start DATE, period_end DATE, daily_water_target INT)
+
+-- 2. water_logs: catatan hidrasi harian terlindungi RLS (auth.uid() = user_id)
+water_logs (id UUID PRIMARY KEY, user_id UUID, date DATE, total_ml INT, entries JSONB)
+
+-- 3. health_logs: catatan kalori, langkah, tidur terlindungi RLS (auth.uid() = user_id)
+health_logs (id UUID PRIMARY KEY, user_id UUID, date DATE, steps INT, sleep_hours NUMERIC, notes TEXT)
+
+-- 4. period_logs: siklus hormon dan menstruasi terlindungi RLS (auth.uid() = user_id)
+period_logs (id UUID PRIMARY KEY, user_id UUID, start_date DATE, end_date DATE, cycle_length INT)
 ```
 
 ---
@@ -299,11 +314,13 @@ users/{userId}
 - ✅ Alert kalori muncul dalam < 2 detik setelah input melebihi batas
 - ✅ Push notif terkirim tepat waktu (toleransi ±1 menit)
 - ✅ App bisa diinstall di HP Android sebagai PWA (Add to Home Screen)
-- ✅ Data tersinkron di Firestore (tidak hilang jika ganti HP)
+- ✅ Data tersinkron di Supabase PostgreSQL (tidak hilang jika ganti HP)
+- ✅ **Google Authentication & Keamanan RLS:** Pengguna dapat login dengan akun Google dan data dijamin privat hanya untuk user tersebut via Row Level Security (RLS).
+- ✅ **Kondisi Awal Bersih (Clean State):** Aplikasi siap digunakan tanpa data dummy bawaan (user menginput data riil sendiri).
 - ✅ **Full Offline Functionality:**
-  - Pengguna tetap bisa mencatat log makan, melihat timer IF, status puasa, dan kalender saat tanpa internet (IndexedDB / Firestore offline cache).
+  - Pengguna tetap bisa mencatat log makan, melihat timer IF, status puasa, dan kalender saat tanpa internet (LocalStorage + PWA cache).
   - Waktu sholat/Maghrib dihitung offline secara presisi.
-  - Data yang diinput saat offline otomatis di-sinkronisasi (background sync) ke cloud begitu koneksi internet pulih.
+  - Data yang diinput saat offline otomatis di-sinkronisasi (background sync) ke cloud Supabase begitu koneksi internet pulih.
 
 ---
 
@@ -314,10 +331,13 @@ Semua pertanyaan desain telah diputuskan dan disetujui:
 | Aspek | Keputusan Final | Keterangan Implementasi |
 |---|---|---|
 | **Nama Aplikasi** | **"Sehat Yuk!"** | Ditampilkan di PWA manifest, header aplikasi, dan notifikasi. |
+| **Autentikasi Pengguna** | **Google Sign-In (OAuth via Supabase)** | Login satu klik dengan akun Google, otomatis mengambil nama dan foto profil, dengan sesi tersimpan otomatis di perangkat. |
+| **Keamanan Data** | **Supabase Row Level Security (RLS)** | Kebijakan akses level baris database PostgreSQL (`auth.uid() = user_id`) memastikan data kesehatan 100% terlindungi dan tidak bisa diakses orang lain. |
+| **Status Data Awal** | **Clean State (Tanpa Data Dummy)** | Seluruh data dummy/mock (makanan, minuman, timbangan) dihilangkan. User memulai dari riwayat bersih untuk menginput data riil. |
 | **Waktu Maghrib & Imsak** | **Deteksi Lokasi Otomatis (GPS) + Kalkulasi Offline** | Menggunakan Geolocation API sekali saat setup, koordinat disimpan di perangkat, dan waktu dihitung secara astronomis memakai pustaka `adhan` (tanpa perlu API external atau kuota). Disertakan fallback pemilihan kota manual jika izin GPS ditolak. |
-| **Dukungan Offline** | **Full Offline Mode** | Log makan, timer, dan status harian dapat dicatat saat offline. Memanfaatkan Firestore Offline Persistence + Service Worker Cache-First untuk aset statis. Auto-sync saat kembali online. |
+| **Dukungan Offline** | **Full Offline Mode** | Log makan, timer, dan status harian dapat dicatat saat offline. Memanfaatkan LocalStorage persistence + Service Worker Cache-First untuk aset statis. Auto-sync saat kembali online. |
 | **Status Pengguna & Laktasi** | **Tidak Menyusui (Non-Laktasi)** | Formula kalori difokuskan pada defisit fat loss murni (1.300 kkal/hari) tanpa kebutuhan tambahan kalori menyusui. |
 | **Data Siklus Menstruasi Aktual** | **Mulai 23 Sept — Selesai 1 Okt 2026** | Durasi haid 9 hari, siklus 28 hari, fase otomatis dihitung dinamis (per 5 Okt berada pada hari ke-13, Fase Folikuler akhir). |
 | **Sistem Notifikasi & Bunyi Bel** | **Web Audio API Chime + Service Worker Push** | Notifikasi berbunyi bel alami (*pleasant harmonic chime*) 100% offline dan muncul di luar aplikasi (*system tray / lockscreen* perangkat). |
-| **Cakupan Proyek** | **Cukup sampai Dokumen PRD Final** | Tidak dilanjutkan ke fase coding/development maupun update Google Tasks lebih lanjut. Seluruh kebutuhan dan arsitektur telah terangkum lengkap dalam dokumen PRD ini. |
+| **Cakupan Proyek** | **Pengembangan PWA Berkelanjutan** | Dokumen PRD dan implementasi aplikasi disinkronkan secara konsisten. |
 

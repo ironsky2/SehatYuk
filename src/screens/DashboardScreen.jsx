@@ -415,12 +415,24 @@ export default function DashboardScreen() {
             <div className="w-9 h-9 rounded-full bg-tertiary-fixed flex items-center justify-center text-tertiary flex-shrink-0">
               <span className="material-symbols-outlined text-[20px]">directions_walk</span>
             </div>
-            <div className="min-w-0">
-              <span className="font-label-sm text-[11px] text-on-surface-variant block">Jalan Santai</span>
-              <p className="font-label-lg text-xs text-on-surface font-bold truncate">
-                25 mnt <span className="text-tertiary font-normal">(-75 kkal)</span>
-              </p>
-            </div>
+            {data.exercises && data.exercises.length > 0 ? (
+              <div className="min-w-0">
+                <span className="font-label-sm text-[11px] text-on-surface-variant block truncate">
+                  {data.exercises[0].name}
+                </span>
+                <p className="font-label-lg text-xs text-on-surface font-bold truncate">
+                  {data.exercises[0].duration} mnt{' '}
+                  <span className="text-tertiary font-normal">(-{data.exercises[0].caloriesBurned} kkal)</span>
+                </p>
+              </div>
+            ) : (
+              <div className="min-w-0">
+                <span className="font-label-sm text-[11px] text-on-surface-variant block">Olahraga</span>
+                <p className="font-label-lg text-xs text-on-surface font-bold truncate">
+                  0 sesi <span className="text-tertiary font-normal">(Catat)</span>
+                </p>
+              </div>
+            )}
           </div>
 
           <div

@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { triggerSystemNotification, playNotificationSound } from '../utils/notificationSound';
+import { supabase, isSupabaseConfigured, signInWithGoogle, signOutUser, getCurrentUser } from '../services/supabase';
 
-const STORAGE_KEY = 'sehat_yuk_app_data_v2';
+const STORAGE_KEY = 'sehat_yuk_app_data_v3';
 
 const defaultState = {
   profile: {
@@ -12,9 +13,9 @@ const defaultState = {
     isNursing: false, // Tidak menyusui sesuai update PRD
     height: 158,
     startWeight: 65.0,
-    currentWeight: 62.8,
+    currentWeight: 65.0,
     targetWeight: 59.0,
-    waistCircumference: 82,
+    waistCircumference: 84,
     hpht: '2026-09-23', // Haid mulai 23 Sept
     periodEnd: '2026-10-01', // Selesai 1 Okt
     periodDuration: 9,
@@ -27,77 +28,20 @@ const defaultState = {
     city: 'Jakarta Selatan',
     coords: { lat: -6.2615, lng: 106.8106 }
   },
-  meals: [
-    {
-      id: 1,
-      name: 'Nasi merah 1 centong, telur dadar, tumis buncis',
-      calories: 380,
-      timeCategory: 'Sahur',
-      time: '04:00',
-      portion: 'Sedang (1.0x)',
-      portionMultiplier: 1.0,
-      icon: 'wb_twilight'
-    },
-    {
-      id: 2,
-      name: 'Oatmeal buah & susu almond',
-      calories: 200,
-      timeCategory: 'Makan 1',
-      time: '12:30',
-      portion: 'Sedang (1.0x)',
-      portionMultiplier: 1.0,
-      icon: 'bakery_dining'
-    },
-    {
-      id: 3,
-      name: '3 butir kurma ajwa + 500ml air hangat',
-      calories: 60,
-      timeCategory: 'Takjil / Camilan',
-      time: '17:52',
-      portion: 'Kecil (0.5x)',
-      portionMultiplier: 0.5,
-      icon: 'nutrition'
-    },
-    {
-      id: 4,
-      name: 'Sup ayam jagung bening & tahu kukus',
-      calories: 310,
-      timeCategory: 'Buka Puasa',
-      time: '18:15',
-      portion: 'Sedang (1.0x)',
-      portionMultiplier: 1.0,
-      icon: 'soup_kitchen'
-    }
-  ],
-  waterGlasses: 6, // 6/8 gelas (1.8 / 2.5L)
-  exercises: [
-    {
-      id: 1,
-      name: 'Brisk Walking & Power Walk',
-      type: 'Brisk Walking',
-      duration: 30,
-      intensity: 'Sedang',
-      caloriesBurned: 110,
-      time: '16:30',
-      date: '2026-10-05'
-    }
-  ],
-  exerciseDaysCompleted: 4, // 4 dari 5 hari target
+  meals: [], // Bersih tanpa data dummy
+  waterGlasses: 0, // Mulai dari 0 gelas
+  exercises: [], // Bersih tanpa data dummy
+  exerciseDaysCompleted: 0, // Mulai dari 0
   mieTracker: {
     quota: 1,
     consumed: 0,
     period: '1 Okt - 14 Okt 2026',
-    lastEaten: '28 September 2026'
+    lastEaten: null
   },
-  weightLogs: [
-    { week: 'Mg 1', weight: 65.0, waist: 86, date: '1 Okt' },
-    { week: 'Mg 2', weight: 64.3, waist: 85, date: '8 Okt' },
-    { week: 'Mg 3', weight: 63.5, waist: 83, date: '15 Okt' },
-    { week: 'Mg 4', weight: 62.8, waist: 82, date: '22 Okt' }
-  ],
+  weightLogs: [], // Bersih tanpa data dummy
   fastingMode: 'sunnah', // 'sunnah' or 'if'
   isPuasaSunnahActive: true,
-  streaks: [true, true, true, true, true, false],
+  streaks: [false, false, false, false, false, false],
   notifications: {
     eatingWindow: true,
     puasaSunnah: true,
@@ -140,6 +84,47 @@ export function AppProvider({ children }) {
   const [activeTab, setActiveTab] = useState('beranda');
   const [quickMealModalOpen, setQuickMealModalOpen] = useState(false);
   const [hasAlertedOverLimit, setHasAlertedOverLimit] = useState(false);
+  const [authUser, setAuthUser] = useState(null);
+
+  // Check Supabase Auth state and listen to login changes
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return;
+
+    getCurrentUser().then((user) => {
+      if (user) {
+        setAuthUser(user);
+        if (user.user_metadata?.full_name) {
+          setData((prev) => ({
+            ...prev,
+            profile: {
+              ...prev.profile,
+              name: user.user_metadata.full_name || prev.profile.name,
+              avatar: user.user_metadata.avatar_url || prev.profile.avatar
+            }
+          }));
+        }
+      }
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const user = session?.user || null;
+      setAuthUser(user);
+      if (user && user.user_metadata?.full_name) {
+        setData((prev) => ({
+          ...prev,
+          profile: {
+            ...prev.profile,
+            name: user.user_metadata.full_name || prev.profile.name,
+            avatar: user.user_metadata.avatar_url || prev.profile.avatar
+          }
+        }));
+      }
+    });
+
+    return () => {
+      authListener?.subscription?.unsubscribe();
+    };
+  }, []);
 
   // Sync state to LocalStorage
   useEffect(() => {
@@ -437,12 +422,42 @@ export function AppProvider({ children }) {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    if (!isSupabaseConfigured) {
+      alert('Supabase belum dikonfigurasi di file .env (VITE_SUPABASE_URL & VITE_SUPABASE_ANON_KEY). Silakan masukkan key Supabase Anda terlebih dahulu!');
+      return;
+    }
+    const { error } = await signInWithGoogle();
+    if (error) {
+      alert('Gagal menghubungkan Google: ' + error.message);
+    }
+  };
+
+  const handleSignOut = async () => {
+    await signOutUser();
+    setAuthUser(null);
+    showNotification('Berhasil Keluar', 'Sesi akun Google telah diakhiri.');
+  };
+
+  const clearAllData = () => {
+    if (window.confirm('Apakah Anda yakin ingin menghapus semua data dan memulai dari catatan baru?')) {
+      localStorage.removeItem(STORAGE_KEY);
+      setData(defaultState);
+      showNotification('Data Dibersihkan 🧹', 'Seluruh data telah di-reset. Anda dapat mulai mengisi data riil baru!');
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
         data,
         isOnline,
         isSyncing,
+        authUser,
+        isSupabaseConfigured,
+        handleGoogleSignIn,
+        handleSignOut,
+        clearAllData,
         activeTab,
         setActiveTab,
         inAppAlert,

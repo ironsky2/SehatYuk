@@ -1,0 +1,24 @@
+{
+  "name": "Sehat Yuk! Health Tracker PWA",
+  "short_name": "SehatYuk",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#fbf8ff",
+  "theme_color": "#b90538",
+  "orientation": "portrait",
+  "description": "Health tracker personal untuk perempuan & ibu Indonesia — defisit kalori, IF, puasa Senin-Kamis, dan fase hormon.",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

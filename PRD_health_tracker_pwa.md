@@ -1,0 +1,313 @@
+# 📋 PRD — Health Tracker PWA "Sehat Yuk!"
+**Product Requirements Document v1.0**
+**Dibuat:** 4 Oktober 2026 | **Status:** Disetujui (Final v1.0)
+
+---
+
+## 1. Overview Produk
+
+### Visi
+Aplikasi PWA personal untuk perempuan Indonesia yang ingin menurunkan berat badan dengan pendekatan **holistik** — menggabungkan defisit kalori, Intermittent Fasting, puasa Senin-Kamis, dan siklus hormon bulanan — dalam satu platform yang mudah dipakai dari HP.
+
+### Target User
+**Persona:** Ibu muda usia 30 tahun, punya bayi, ekonomi menengah, memasak mengikuti keluarga, tidak punya banyak waktu, akses HP setiap saat.
+
+### Tujuan Utama
+- Bantu user mencapai target turun BB 3 kg/bulan
+- Beri alert real-time jika kalori melebihi batas
+- Track IF timer, puasa Senin-Kamis, dan fase hormon secara otomatis
+- Waktu Maghrib akurat otomatis berdasarkan lokasi GPS
+- Full offline support (tetap bisa log & cek timer tanpa internet, auto-sync ke Google/Firestore saat online)
+
+---
+
+## 2. Tech Stack & Arsitektur Offline
+
+| Layer | Teknologi |
+|---|---|
+| Frontend | React 18 + Vite |
+| Styling | Tailwind CSS (pink/rose theme) |
+| State Management | Zustand |
+| Backend & DB | Firebase (Firestore with Offline Persistence + Auth) |
+| Auth | Google Sign-In (Firebase Auth) |
+| Offline Storage | IndexedDB / Firestore Cache & Service Worker Cache-First |
+| Waktu Sholat/Maghrib | Geolocation API + `adhan` (kalkulasi astronomi offline presisi lokal) |
+| Push Notifications | Firebase Cloud Messaging (FCM) + Web Notification API |
+| PWA Engine | `vite-plugin-pwa` (Workbox Service Worker, Web App Manifest) |
+| Hosting | Firebase Hosting |
+| Charts | Recharts |
+
+
+---
+
+## 3. Fitur Lengkap
+
+### F1 — Dashboard Harian 🏠
+**Halaman utama yang muncul saat buka app.**
+
+Komponen:
+- **Header:** Nama user + foto Google + tanggal hari ini
+- **Fase Hormon Card:** Ikon + nama fase + tips singkat hari ini
+- **IF Timer Card:** Countdown timer eating window / puasa aktif
+- **Kalori Ring:** Donut chart kalori terpakai vs target (warna berubah merah jika >90%)
+- **Quick Log Button:** Tombol besar "➕ Tambah Makan" di tengah bawah
+- **Summary Bar:** Ringkasan olahraga + air minum hari ini
+- **Puasa Senin-Kamis Badge:** Muncul di hari Senin & Kamis
+
+---
+
+### F2 — Log Makan & Kalori Alert 🍽️
+
+**Input Makan:**
+- Ketik nama makanan (free text)
+- Input kalori manual (angka)
+- Pilih waktu makan: Sahur / Makan 1 / Snack / Makan 2 / Buka Puasa / Makan 3
+- Pilih porsi: Kecil / Sedang / Besar (multiplier ×0,5 / ×1 / ×1,5)
+- Tombol "Simpan"
+
+**Kalori Alert System:**
+| Kondisi | Tampilan |
+|---|---|
+| 0–80% target | ✅ Hijau — aman |
+| 80–95% target | 🟡 Kuning — hampir penuh |
+| 95–100% target | 🟠 Oranye — peringatan |
+| >100% target | 🔴 MERAH — alert muncul! |
+
+**Alert saat melebihi target:**
+- **In-app banner merah** di bagian atas screen: *"⚠️ Kalori hari ini sudah melebihi target! (1.350/1.300 kkal)"*
+- **Push notification** ke HP: *"Kalori harianmu sudah penuh! Hindari makan lagi ya 🌸"*
+
+**Riwayat Makan:**
+- List makan hari ini per waktu (bisa tap untuk edit/hapus)
+- Total kalori real-time terupdate
+
+---
+
+### F3 — IF Timer ⏱️
+
+**Mode hari biasa (Selasa, Rabu, Jumat, Sabtu, Minggu):**
+- Eating window: 11:00 – 19:00 (bisa dikustomisasi)
+- Timer countdown: sisa waktu eating window / sisa waktu puasa IF
+- Status visual: 🟢 Boleh makan / 🔴 Sedang puasa
+
+**Mode hari puasa Senin-Kamis:**
+- Otomatis switch ke mode puasa (lihat F4)
+
+**Push notification:**
+- 11:00 → *"Eating window dimulai! Boleh makan sekarang 🍽️"*
+- 18:30 → *"30 menit lagi eating window tutup!"*
+- 19:00 → *"Eating window tutup. Mulai puasa IF sampai jam 11 besok 💪"*
+
+---
+
+### F4 — Tracker Puasa Senin-Kamis 🕌
+
+**Fitur:**
+- Deteksi otomatis hari Senin & Kamis
+- Toggle: "Saya puasa hari ini" → aktifkan mode puasa
+- **Deteksi Waktu Maghrib & Imsak Otomatis (GPS + Offline Calculation):**
+  - Menggunakan browser Geolocation API untuk mendeteksi koordinat lintang/bujur pengguna secara otomatis.
+  - Perhitungan waktu Imsak & Maghrib dihitung secara lokal di perangkat via pustaka `adhan` (parameter Kemenag/MABIMS). Bekerja 100% akurat tanpa membutuhkan koneksi internet.
+  - *Fallback:* Jika izin lokasi ditolak, pengguna dapat memilih kota secara manual.
+- Mode puasa aktif:
+  - Waktu sahur: sebelum waktu Imsak otomatis (sekitar 04:15–04:30)
+  - Waktu buka: tepat saat masuk waktu Maghrib otomatis (sekitar 17:45–18:00 tergantung koordinat lokal)
+  - Timer countdown buka puasa real-time
+- History puasa: kalender bulan, tandai ✅ hari yang berhasil puasa
+- Streak counter: berapa minggu berturut-turut puasa penuh
+
+**Push notification hari Senin & Kamis:**
+- 03:45 → *"⏰ Sahur! Bangun sekarang ya 🌙"*
+- 10 menit sebelum Imsak → *"Imsak 10 menit lagi. Segera selesaikan makan & minum!"*
+- 5 menit sebelum Maghrib → *"5 menit lagi buka puasa 🌅 Alhamdulillah!"*
+- Tepat waktu Maghrib → *"Waktunya berbuka puasa! Awali dengan air putih & kurma/buah 🌸"*
+
+
+---
+
+### F5 — Kalender Fase Hormon 🌸
+
+**Fitur:**
+- Input: HPHT (Hari Pertama Haid Terakhir) + panjang siklus
+- Auto-hitung fase per hari: Menstruasi / Folikuler / Ovulasi / Luteal
+- Kalender bulanan dengan warna per fase:
+  - 🔴 Merah: Menstruasi
+  - 🌱 Hijau muda: Folikuler
+  - ⚡ Kuning: Ovulasi
+  - 🌙 Ungu muda: Luteal
+- Tap tanggal → lihat tips makan, olahraga, & mood untuk fase tersebut
+- Auto-reminder ganti strategi saat berganti fase
+
+**Rekomendasi per fase (muncul di Dashboard):**
+| Fase | Tips yang ditampilkan |
+|---|---|
+| Folikuler | "Energi tinggi! Ideal untuk defisit agresif & cardio" |
+| Ovulasi | "Puncak performa. HIIT & defisit sedang" |
+| Luteal | "Antisipasi craving. Perbanyak protein" |
+| Menstruasi | "Istirahat cukup. Defisit minimal. Perkaya zat besi" |
+
+---
+
+### F6 — Grafik Berat Badan & Lingkar Perut 📊
+
+**Input:**
+- Berat badan (kg) — input setiap Senin
+- Lingkar perut (cm) — input setiap Senin
+- Waktu input: setelah menekan tombol di reminder push notif
+
+**Visualisasi:**
+- Line chart berat badan: minggu 1–4 vs target
+- Line chart lingkar perut: minggu 1–4
+- Persentase progress menuju target
+- Motivational message: *"Kamu sudah turun X kg! Tinggal Y kg lagi 🎉"*
+
+**Push notification setiap Senin jam 06:30:**
+*"⚖️ Hari timbang! Timbang sekarang sebelum makan ya 🌸"*
+
+---
+
+### F7 — Tracker Olahraga 🏃
+
+**Input:**
+- Jenis olahraga (free text atau pilih dari daftar: Jalan kaki / Senam / Yoga / HIIT / Lainnya)
+- Durasi (menit)
+- Intensitas: Ringan / Sedang / Tinggi
+- Estimasi kalori terbakar (otomatis dari durasi + intensitas)
+- Catatan bebas
+
+**Tampilan:**
+- Log olahraga hari ini di Dashboard
+- History mingguan: berapa hari berolahraga dari target
+
+---
+
+### F8 — Tracker Mie 🍜
+
+**Fitur:**
+- Periode 2 minggu otomatis dihitung
+- Status jatah tersisa: "1 jatah tersisa" / "Jatah habis ⛔"
+- Tombol "Saya makan mie hari ini" → kurangi jatah 1
+- History: tanggal kapan makan mie per periode
+- Alert jika mencoba log mie padahal jatah habis:
+  - In-app: *"⛔ Jatah mie periode ini sudah habis! Tahan dulu ya 💪"*
+  - Tidak ada push notif (hanya in-app alert)
+
+---
+
+### F9 — Notifikasi & Reminder 🔔
+
+Semua push notification bisa dikustomisasi on/off per kategori:
+
+| Kategori | Notifikasi |
+|---|---|
+| IF Harian | Eating window buka/tutup |
+| Puasa Senin-Kamis | Sahur, imsak, buka puasa |
+| Kalori | Alert jika melebihi target |
+| Timbang BB | Setiap Senin pagi |
+| Fase Hormon | Notif saat berganti fase |
+| Olahraga | Reminder olahraga (jam bisa dikustomisasi) |
+
+---
+
+### F10 — Profil & Pengaturan ⚙️
+
+**Data Profil:**
+- Nama, foto (dari Google)
+- Tinggi badan, berat badan awal, target berat
+- Usia → auto-hitung BMR & TDEE
+- HPHT & panjang siklus haid
+- Eating window IF (default 11:00–19:00)
+- Waktu Maghrib kota (untuk buka puasa)
+
+**Target Kalori:**
+- Auto-dihitung dari BMR + aktivitas
+- Bisa di-override manual
+
+---
+
+## 4. Arsitektur Data (Firestore)
+
+```
+users/{userId}
+  ├── profile: { nama, tinggi, beratAwal, targetBerat, usia, hpht, siklusPanjang, ... }
+  ├── dailyLogs/{tanggal}
+  │   ├── meals: [{ nama, kalori, waktu, porsi }]
+  │   ├── exercise: [{ jenis, durasi, intensitas, kaloriTerbakar }]
+  │   ├── fasting: { ifStart, ifEnd, puasaSenKam: boolean }
+  │   └── totalKalori: number
+  ├── weightLogs/{tanggal}
+  │   ├── beratBadan: number
+  │   └── lingkarPerut: number
+  └── mieLogs/{periodeId}
+      ├── jatah: 1
+      ├── terpakai: 0
+      └── tanggalPakai: date | null
+```
+
+---
+
+## 5. Halaman / Screen
+
+| Screen | Deskripsi |
+|---|---|
+| **Splash / Onboarding** | Login Google + isi data profil (sekali saja) |
+| **Dashboard** | Halaman utama harian |
+| **Log Makan** | Form tambah makan + list makan hari ini |
+| **IF Timer** | Timer besar + status eating window |
+| **Puasa Senin-Kamis** | Toggle + timer + history kalender |
+| **Fase Hormon** | Kalender bulanan + detail per fase |
+| **Grafik Progress** | BB + lingkar perut chart |
+| **Olahraga** | Log olahraga hari ini + history |
+| **Tracker Mie** | Status jatah + history |
+| **Notifikasi** | Pengaturan on/off per kategori |
+| **Profil & Pengaturan** | Edit data diri + target kalori |
+
+---
+
+## 6. Desain & UI/UX
+
+- **Tema warna:** Pink/Rose (`rose-400`, `rose-500`, `rose-100`)
+- **Font:** Inter atau Poppins (modern, mudah dibaca)
+- **Gaya:** Mobile-first, clean, card-based layout
+- **Bottom navigation:** 5 tab — 🏠 Dashboard / 🍽️ Makan / ⏱️ IF Timer / 📊 Progress / ⚙️ Pengaturan
+- **Dark mode:** Tidak diperlukan (fase 1)
+- **Bahasa:** Indonesia
+
+---
+
+## 7. Milestone Development
+
+| Fase | Fitur | Estimasi |
+|---|---|---|
+| **MVP (v1.0)** | F1 Dashboard, F2 Log Makan + Alert, F3 IF Timer, F10 Profil | 1–2 minggu |
+| **v1.1** | F4 Puasa Senin-Kamis, F9 Notifikasi, F8 Tracker Mie | +1 minggu |
+| **v1.2** | F5 Fase Hormon, F6 Grafik Progress, F7 Olahraga | +1–2 minggu |
+| **v1.3** | Polish, bug fix, deploy ke Firebase Hosting | +3–5 hari |
+
+---
+
+## 8. Success Metrics
+
+- ✅ User bisa log makan < 1 menit per entry
+- ✅ Alert kalori muncul dalam < 2 detik setelah input melebihi batas
+- ✅ Push notif terkirim tepat waktu (toleransi ±1 menit)
+- ✅ App bisa diinstall di HP Android sebagai PWA (Add to Home Screen)
+- ✅ Data tersinkron di Firestore (tidak hilang jika ganti HP)
+- ✅ **Full Offline Functionality:**
+  - Pengguna tetap bisa mencatat log makan, melihat timer IF, status puasa, dan kalender saat tanpa internet (IndexedDB / Firestore offline cache).
+  - Waktu sholat/Maghrib dihitung offline secara presisi.
+  - Data yang diinput saat offline otomatis di-sinkronisasi (background sync) ke cloud begitu koneksi internet pulih.
+
+---
+
+## 9. Keputusan Desain & Spesifikasi Final (Decisions Log)
+
+Semua pertanyaan desain telah diputuskan dan disetujui:
+
+| Aspek | Keputusan Final | Keterangan Implementasi |
+|---|---|---|
+| **Nama Aplikasi** | **"Sehat Yuk!"** | Ditampilkan di PWA manifest, header aplikasi, dan notifikasi. |
+| **Waktu Maghrib & Imsak** | **Deteksi Lokasi Otomatis (GPS) + Kalkulasi Offline** | Menggunakan Geolocation API sekali saat setup, koordinat disimpan di perangkat, dan waktu dihitung secara astronomis memakai pustaka `adhan` (tanpa perlu API external atau kuota). Disertakan fallback pemilihan kota manual jika izin GPS ditolak. |
+| **Dukungan Offline** | **Full Offline Mode** | Log makan, timer, dan status harian dapat dicatat saat offline. Memanfaatkan Firestore Offline Persistence + Service Worker Cache-First untuk aset statis. Auto-sync saat kembali online. |
+| **Cakupan Proyek** | **Cukup sampai Dokumen PRD Final** | Tidak dilanjutkan ke fase coding/development maupun update Google Tasks lebih lanjut. Seluruh kebutuhan dan arsitektur telah terangkum lengkap dalam dokumen PRD ini. |
+

@@ -1,0 +1,712 @@
+import React, { useState } from 'react';
+import { useApp } from '../context/AppContext';
+import confetti from 'canvas-confetti';
+
+export default function ProgressScreen() {
+  const {
+    data,
+    consumeMie,
+    addWeightLog,
+    addExercise,
+    updateProfile,
+    toggleNotification,
+    showNotification
+  } = useApp();
+
+  const [weightModalOpen, setWeightModalOpen] = useState(false);
+  const [newWeight, setNewWeight] = useState(data.profile.currentWeight || '62.8');
+  const [newWaist, setNewWaist] = useState(data.profile.waistCircumference || '82');
+
+  const [exerciseModalOpen, setExerciseModalOpen] = useState(false);
+  const [exName, setExName] = useState('Jalan Santai + Baby Stroller');
+  const [exDuration, setExDuration] = useState('25');
+  const [exIntensity, setExIntensity] = useState('Sedang');
+
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [editCalorieTarget, setEditCalorieTarget] = useState(data.profile.dailyCalorieTarget || 1300);
+  const [editIfStart, setEditIfStart] = useState(data.profile.ifStart || '11:00');
+  const [editIfEnd, setEditIfEnd] = useState(data.profile.ifEnd || '19:00');
+  const [isNursing, setIsNursing] = useState(data.profile.isNursing);
+
+  const startWeight = Number(data.profile.startWeight) || 65.0;
+  const currentWeight = Number(data.profile.currentWeight) || 62.8;
+  const targetWeight = Number(data.profile.targetWeight) || 59.0;
+  const lostWeight = Math.max(0, (startWeight - currentWeight)).toFixed(1);
+  const remainingWeight = Math.max(0, (currentWeight - targetWeight)).toFixed(1);
+
+  const monthlyGoal = 3.0;
+  const monthlyProgressPercent = Math.min(Math.round((Number(lostWeight) / monthlyGoal) * 100), 100);
+
+  const handleConsumeMieClick = () => {
+    if (data.mieTracker.quota <= 0) {
+      alert('⛔ Jatah mie periode ini sudah habis! Tahan dulu ya Bunda 💪 Jaga defisit kalori & sodium tubuh tetap stabil.');
+      return;
+    }
+    const success = consumeMie();
+    if (success) {
+      showNotification('Jatah Mie Dipotong 🍜', '1 jatah mie periode 2 mingguan telah dipakai. Jangan lupa minum air yang cukup!');
+    }
+  };
+
+  const handleWeightSubmit = (e) => {
+    e.preventDefault();
+    addWeightLog(newWeight, newWaist);
+    setWeightModalOpen(false);
+    showNotification('Timbangan Dicatat ⚖️', `Berat badan ${newWeight} kg & lingkar perut ${newWaist} cm tersimpan.`);
+  };
+
+  const handleExerciseSubmit = (e) => {
+    e.preventDefault();
+    const durationNum = Number(exDuration);
+    const calBurn = Math.round(durationNum * (exIntensity === 'Tinggi' ? 6 : exIntensity === 'Sedang' ? 3.5 : 2.5));
+    addExercise({
+      name: exName,
+      type: exName,
+      duration: durationNum,
+      intensity: exIntensity,
+      caloriesBurned: calBurn
+    });
+    setExerciseModalOpen(false);
+    showNotification('Olahraga Dicatat 🏃', `Latihan ${exName} selama ${durationNum} menit (-${calBurn} kkal) tersimpan.`);
+  };
+
+  const handleSaveSettings = (e) => {
+    e.preventDefault();
+    updateProfile({
+      dailyCalorieTarget: Number(editCalorieTarget),
+      ifStart: editIfStart,
+      ifEnd: editIfEnd,
+      isNursing
+    });
+    setSettingsModalOpen(false);
+    showNotification('Pengaturan Disimpan ⚙️', 'Target kalori dan eating window berhasil diperbarui.');
+  };
+
+  return (
+    <div className="flex flex-col w-full gap-4">
+      {/* Progress Highlights Header Banner */}
+      <div className="relative overflow-hidden rounded-2xl bg-surface-container-lowest p-4 shadow-[0_4px_20px_-2px_rgba(244,63,94,0.08)] border border-outline-variant/30">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col min-w-0">
+            <span className="inline-flex items-center gap-1 font-label-sm text-[11px] text-primary uppercase tracking-wider font-bold">
+              <span className="material-symbols-outlined text-[14px]">auto_awesome</span>
+              Kemajuan Bunda
+            </span>
+            <h2 className="font-headline-md text-base text-on-surface font-extrabold mt-0.5 truncate">
+              Pencapaian & Kebiasaan
+            </h2>
+            <p className="font-body-sm text-xs text-on-surface-variant mt-0.5">
+              Konsistensi tanpa beban untuk tubuh yang lebih bugar.
+            </p>
+          </div>
+          <div className="w-11 h-11 rounded-full bg-secondary-fixed flex items-center justify-center flex-shrink-0 text-on-secondary-fixed shadow-xs">
+            <span className="material-symbols-outlined text-[24px]">favorite</span>
+          </div>
+        </div>
+
+        {/* Motivational Pill */}
+        <div className="mt-3 p-2.5 rounded-xl bg-surface-container-low flex items-center gap-2.5 border border-outline-variant/20">
+          <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center flex-shrink-0 text-on-secondary">
+            <span className="material-symbols-outlined text-[16px]">spa</span>
+          </div>
+          <p className="font-body-sm text-xs text-on-surface font-medium leading-tight">
+            Hebat Bunda! Tinggal <span className="text-primary font-bold">{remainingWeight} kg lagi</span> menuju target idealmu 🌸
+          </p>
+        </div>
+      </div>
+
+      {/* F6: Kartu Pencapaian Target Berat Badan */}
+      <div className="rounded-2xl bg-surface-container-lowest p-4 shadow-[0_4px_20px_-2px_rgba(244,63,94,0.06)] border border-outline-variant/30 flex flex-col gap-3.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed shadow-xs">
+              <span className="material-symbols-outlined text-[18px]">monitor_weight</span>
+            </div>
+            <span className="font-headline-sm text-base text-on-surface font-bold">
+              Target Berat Badan
+            </span>
+          </div>
+          <span className="font-label-sm text-xs px-2.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-bold shadow-xs">
+            Turun {lostWeight} kg 🎉
+          </span>
+        </div>
+
+        {/* Stat Milestones Grid */}
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="p-2.5 rounded-xl bg-surface-container-low flex flex-col justify-center border border-outline-variant/20">
+            <span className="font-label-sm text-[11px] text-on-surface-variant font-medium">Awal</span>
+            <span className="font-headline-sm text-base text-on-surface font-bold mt-0.5">
+              {startWeight.toFixed(1)}
+            </span>
+            <span className="font-label-sm text-[10px] text-outline">kg</span>
+          </div>
+          <div className="p-2.5 rounded-xl bg-primary-fixed flex flex-col justify-center border border-primary/20 shadow-xs">
+            <span className="font-label-sm text-[11px] text-on-primary-fixed font-bold">Sekarang</span>
+            <span className="font-headline-sm text-base text-primary font-black mt-0.5">
+              {currentWeight.toFixed(1)}
+            </span>
+            <span className="font-label-sm text-[10px] text-on-primary-fixed-variant font-bold">kg</span>
+          </div>
+          <div className="p-2.5 rounded-xl bg-surface-container-low flex flex-col justify-center border border-outline-variant/20">
+            <span className="font-label-sm text-[11px] text-on-surface-variant font-medium">Target</span>
+            <span className="font-headline-sm text-base text-on-surface font-bold mt-0.5">
+              {targetWeight.toFixed(1)}
+            </span>
+            <span className="font-label-sm text-[10px] text-outline">kg</span>
+          </div>
+        </div>
+
+        {/* Monthly Progress Bar */}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex justify-between items-center font-label-sm text-xs">
+            <span className="text-on-surface-variant font-medium">Target Bulanan (3.0 kg)</span>
+            <span className="text-primary font-bold">{monthlyProgressPercent}% Terpenuhi</span>
+          </div>
+          <div className="w-full h-3 rounded-full bg-surface-container overflow-hidden p-0.5">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-500 shadow-xs"
+              style={{ width: `${monthlyProgressPercent}%` }}
+            />
+          </div>
+          <div className="flex justify-between font-label-sm text-[11px] text-outline">
+            <span>Sisa target total: {remainingWeight} kg lagi</span>
+            <span>Est. 4 minggu</span>
+          </div>
+        </div>
+
+        {/* Visual SVG Line Chart for 4-Week Trend */}
+        <div className="flex flex-col gap-1.5 pt-1 border-t border-surface-container-low">
+          <div className="flex justify-between items-center">
+            <span className="font-label-md text-xs text-on-surface font-bold">
+              Tren Penurunan (Minggu 1 - 4)
+            </span>
+            <span className="font-label-sm text-xs text-tertiary flex items-center gap-0.5 font-semibold">
+              <span className="material-symbols-outlined text-[14px]">trending_down</span>
+              Konsisten
+            </span>
+          </div>
+          <div className="h-28 w-full bg-surface-container-low rounded-xl p-2.5 flex flex-col justify-end relative overflow-hidden border border-outline-variant/20">
+            <svg className="w-full h-20 overflow-visible" preserveAspectRatio="none" viewBox="0 0 300 70">
+              <defs>
+                <linearGradient id="chartGradient2" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="#b90538" stopOpacity="0.25" />
+                  <stop offset="100%" stopColor="#b90538" stopOpacity="0.0" />
+                </linearGradient>
+              </defs>
+              <path d="M 0,15 L 100,28 L 200,45 L 300,60 L 300,70 L 0,70 Z" fill="url(#chartGradient2)" />
+              <path
+                d="M 0,15 L 100,28 L 200,45 L 300,60"
+                fill="none"
+                stroke="#b90538"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="3"
+              />
+              <circle cx="0" cy="15" fill="#b90538" r="4" stroke="#ffffff" strokeWidth="2" />
+              <circle cx="100" cy="28" fill="#b90538" r="4" stroke="#ffffff" strokeWidth="2" />
+              <circle cx="200" cy="45" fill="#b90538" r="4" stroke="#ffffff" strokeWidth="2" />
+              <circle cx="300" cy="60" fill="#dc2c4f" r="5" stroke="#ffffff" strokeWidth="2" />
+            </svg>
+            <div className="flex justify-between text-[10px] text-on-surface-variant font-label-sm pt-1">
+              <span>Mg 1: 65.0</span>
+              <span>Mg 2: 64.3</span>
+              <span>Mg 3: 63.5</span>
+              <span className="font-bold text-primary">Mg 4: 62.8</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Secondary Metric: Lingkar Perut */}
+        <div className="flex items-center justify-between p-3 rounded-xl bg-surface-container-low border border-outline-variant/20">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-secondary-fixed flex items-center justify-center text-secondary">
+              <span className="material-symbols-outlined text-[18px]">straighten</span>
+            </div>
+            <div>
+              <p className="font-label-md text-xs text-on-surface font-bold">Lingkar Perut</p>
+              <p className="font-body-sm text-[11px] text-on-surface-variant">Turun dari 86 cm</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <span className="font-headline-sm text-base text-on-surface font-bold">
+              {data.profile.waistCircumference}
+            </span>
+            <span className="font-label-sm text-xs text-on-surface-variant"> cm</span>
+            <span className="block font-label-sm text-xs text-tertiary font-bold">-4 cm ✨</span>
+          </div>
+        </div>
+
+        {/* Quick Weight Logging CTA Button */}
+        <button
+          onClick={() => setWeightModalOpen(true)}
+          className="w-full py-3 px-4 rounded-full bg-primary text-on-primary font-label-lg text-xs font-bold flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(185,5,56,0.25)] active:scale-[0.98] transition-all"
+        >
+          <span className="material-symbols-outlined text-[18px]">scale</span>
+          Catat Timbang Hari Senin Ini
+        </button>
+      </div>
+
+      {/* F8: Tracker Mie Instan 🍜 */}
+      <div className="rounded-2xl bg-surface-container-lowest p-4 shadow-[0_4px_20px_-2px_rgba(244,63,94,0.06)] border border-outline-variant/30 flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-8 h-8 rounded-full bg-secondary-fixed flex items-center justify-center text-on-secondary-container flex-shrink-0">
+              <span className="material-symbols-outlined text-[18px]">ramen_dining</span>
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-headline-sm text-sm text-on-surface font-bold truncate">
+                Tracker Mie Instan 🍜
+              </h3>
+              <p className="font-label-sm text-[11px] text-on-surface-variant truncate">
+                Siklus 2 Mingguan ({data.mieTracker.period})
+              </p>
+            </div>
+          </div>
+          <span
+            className={`font-label-sm text-xs px-2.5 py-0.5 rounded-full font-bold flex-shrink-0 flex items-center gap-1 shadow-xs ${
+              data.mieTracker.quota > 0
+                ? 'bg-tertiary-fixed text-on-tertiary-fixed'
+                : 'bg-error-container text-on-error-container'
+            }`}
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                data.mieTracker.quota > 0 ? 'bg-tertiary' : 'bg-error'
+              }`}
+            />
+            {data.mieTracker.quota > 0 ? '1 Jatah Tersisa' : 'Jatah Habis ⛔'}
+          </span>
+        </div>
+
+        {/* Rule & Last Eaten Info Card */}
+        <div className="p-3 rounded-xl bg-surface-container-low flex flex-col gap-2 border border-outline-variant/20">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[18px] text-tertiary">verified_user</span>
+            <span className="font-label-md text-xs text-on-surface font-bold">
+              Aturan Jatah Bijak
+            </span>
+          </div>
+          <p className="font-body-sm text-xs text-on-surface-variant leading-relaxed">
+            Maksimal 1 porsi per 2 minggu demi menjaga defisit kalori & kadar sodium tubuh tetap stabil tanpa merasa terkekang.
+          </p>
+          <div className="pt-1.5 flex items-center justify-between font-label-sm text-[11px] text-outline border-t border-surface-container">
+            <span>Riwayat makan mie terakhir:</span>
+            <span className="font-bold text-on-surface">{data.mieTracker.lastEaten}</span>
+          </div>
+        </div>
+
+        {/* Action Button */}
+        <button
+          onClick={handleConsumeMieClick}
+          disabled={data.mieTracker.quota <= 0}
+          className={`w-full py-2.5 px-4 rounded-full font-label-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+            data.mieTracker.quota > 0
+              ? 'bg-secondary-fixed text-on-secondary-fixed active:scale-[0.98] cursor-pointer shadow-xs'
+              : 'bg-surface-container text-on-surface-variant/60 cursor-not-allowed opacity-70'
+          }`}
+        >
+          <span className="material-symbols-outlined text-[18px]">soup_kitchen</span>
+          {data.mieTracker.quota > 0
+            ? 'Saya Makan Mie Hari Ini (Potong Jatah)'
+            : 'Jatah Periode Ini Telah Dipakai'}
+        </button>
+      </div>
+
+      {/* F7: Ringkasan Olahraga Mingguan */}
+      <div className="rounded-2xl bg-surface-container-lowest p-4 shadow-[0_4px_20px_-2px_rgba(244,63,94,0.06)] border border-outline-variant/30 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-tertiary-fixed flex items-center justify-center text-on-tertiary-fixed shadow-xs">
+              <span className="material-symbols-outlined text-[18px]">directions_run</span>
+            </div>
+            <span className="font-headline-sm text-base text-on-surface font-bold">
+              Olahraga Mingguan
+            </span>
+          </div>
+          <span className="font-label-sm text-xs px-2.5 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed font-bold shadow-xs">
+            {data.exerciseDaysCompleted} / 5 Hari Target
+          </span>
+        </div>
+
+        {/* Active Routine Spotlight */}
+        <div className="p-3 rounded-xl bg-surface-container-low flex items-start gap-2.5 border border-outline-variant/20">
+          <div className="w-8 h-8 rounded-full bg-tertiary-container flex items-center justify-center text-on-tertiary flex-shrink-0 mt-0.5">
+            <span className="material-symbols-outlined text-[18px]">stroller</span>
+          </div>
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="font-label-md text-xs text-on-surface font-bold truncate">
+                Jalan Santai + Baby Stroller
+              </span>
+              <span className="font-label-sm text-[10px] px-1.5 py-0.2 rounded bg-tertiary-fixed text-on-tertiary-fixed font-semibold">
+                Rutin
+              </span>
+            </div>
+            <p className="font-body-sm text-xs text-on-surface-variant mt-0.5 leading-relaxed">
+              Rata-rata 25 menit tiap sesi. Membantu sirkulasi postpartum dan relaksasi pikiran Bunda.
+            </p>
+          </div>
+        </div>
+
+        {/* 5-Day Target Dots */}
+        <div className="grid grid-cols-5 gap-1.5 pt-0.5">
+          {['Sen', 'Sel', 'Rab', 'Kam', 'Jum'].map((day, i) => {
+            const isDone = i < data.exerciseDaysCompleted;
+            return (
+              <div
+                key={day}
+                className={`flex flex-col items-center gap-1 p-2 rounded-xl text-xs ${
+                  isDone
+                    ? 'bg-tertiary-fixed text-on-tertiary-fixed font-bold shadow-xs'
+                    : 'bg-surface-container text-on-surface-variant border border-outline-variant/20'
+                }`}
+              >
+                <span>{day}</span>
+                <span className="material-symbols-outlined text-[15px]">
+                  {isDone ? 'check' : 'hourglass_empty'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        <button
+          onClick={() => setExerciseModalOpen(true)}
+          className="w-full py-2.5 px-4 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+        >
+          <span className="material-symbols-outlined text-[18px]">add_circle</span>
+          Catat Olahraga Hari Ini
+        </button>
+      </div>
+
+      {/* F9: Pengaturan Notifikasi & Reminder */}
+      <div className="rounded-2xl bg-surface-container-lowest p-4 shadow-[0_4px_20px_-2px_rgba(244,63,94,0.06)] border border-outline-variant/30 flex flex-col gap-2.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary text-[20px]">notifications</span>
+            <h3 className="font-headline-sm text-base text-on-surface font-bold">
+              Notifikasi & Pengingat
+            </h3>
+          </div>
+          <span className="font-label-sm text-xs text-tertiary font-bold bg-tertiary-fixed/30 px-2 py-0.5 rounded-full">
+            Push Aktif
+          </span>
+        </div>
+        <div className="flex flex-col gap-2 pt-1 text-sm">
+          <div className="flex items-center justify-between p-2.5 rounded-xl bg-surface-container-low border border-outline-variant/20">
+            <div>
+              <p className="font-bold text-xs text-on-surface">Jadwal IF (11:00 & 19:00)</p>
+              <p className="text-[11px] text-on-surface-variant">Eating window buka & tutup</p>
+            </div>
+            <input
+              type="checkbox"
+              checked={data.notifications.eatingWindow}
+              onChange={() => toggleNotification('eatingWindow')}
+              className="accent-primary w-4 h-4 cursor-pointer"
+            />
+          </div>
+          <div className="flex items-center justify-between p-2.5 rounded-xl bg-surface-container-low border border-outline-variant/20">
+            <div>
+              <p className="font-bold text-xs text-on-surface">Puasa Sunnah (Sahur & Maghrib)</p>
+              <p className="text-[11px] text-on-surface-variant">Alarm sahur, imsak & buka puasa</p>
+            </div>
+            <input
+              type="checkbox"
+              checked={data.notifications.puasaSunnah}
+              onChange={() => toggleNotification('puasaSunnah')}
+              className="accent-primary w-4 h-4 cursor-pointer"
+            />
+          </div>
+          <div className="flex items-center justify-between p-2.5 rounded-xl bg-surface-container-low border border-outline-variant/20">
+            <div>
+              <p className="font-bold text-xs text-on-surface">Peringatan Batas Kalori</p>
+              <p className="text-[11px] text-on-surface-variant">Notif instan saat melebihi target</p>
+            </div>
+            <input
+              type="checkbox"
+              checked={data.notifications.calorieAlert}
+              onChange={() => toggleNotification('calorieAlert')}
+              className="accent-primary w-4 h-4 cursor-pointer"
+            />
+          </div>
+          <div className="flex items-center justify-between p-2.5 rounded-xl bg-surface-container-low border border-outline-variant/20">
+            <div>
+              <p className="font-bold text-xs text-on-surface">Timbang BB Hari Senin</p>
+              <p className="text-[11px] text-on-surface-variant">Setiap Senin jam 06:30 pagi</p>
+            </div>
+            <input
+              type="checkbox"
+              checked={data.notifications.weighIn}
+              onChange={() => toggleNotification('weighIn')}
+              className="accent-primary w-4 h-4 cursor-pointer"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* F10: Profil & Pengaturan Sistem */}
+      <div className="rounded-2xl bg-surface-container-lowest p-4 shadow-[0_4px_20px_-2px_rgba(244,63,94,0.06)] border border-outline-variant/30 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface">
+              <span className="material-symbols-outlined text-[18px]">manage_accounts</span>
+            </div>
+            <span className="font-headline-sm text-base text-on-surface font-bold">
+              Profil & Target
+            </span>
+          </div>
+          <button
+            onClick={() => setSettingsModalOpen(true)}
+            className="font-label-sm text-xs text-primary font-bold hover:underline"
+          >
+            Ubah
+          </button>
+        </div>
+
+        {/* User Profile Summary Card */}
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low border border-outline-variant/20">
+          <div className="w-12 h-12 rounded-full bg-primary-fixed p-0.5 flex-shrink-0 shadow-xs">
+            <img
+              className="w-full h-full object-cover rounded-full"
+              src={data.profile.avatar || '/avatar.png'}
+              alt="Profile"
+            />
+          </div>
+          <div className="flex flex-col min-w-0">
+            <h4 className="font-label-lg text-sm text-on-surface font-bold truncate">
+              {data.profile.name}
+            </h4>
+            <span className="font-body-sm text-xs text-on-surface-variant">
+              {data.profile.age} tahun • {data.profile.isNursing ? 'Ibu Menyusui (ASI)' : 'Umum'} • {data.profile.height} cm
+            </span>
+          </div>
+        </div>
+
+        {/* Calories Breakdown Tile */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="p-3 rounded-xl bg-surface-container-low flex flex-col justify-between border border-outline-variant/20">
+            <span className="font-label-sm text-xs text-on-surface-variant font-medium">
+              Target Kalori Harian
+            </span>
+            <div className="mt-1">
+              <span className="font-headline-sm text-base text-primary font-black">
+                {data.profile.dailyCalorieTarget}
+              </span>
+              <span className="font-label-sm text-xs text-on-surface-variant"> kkal/hari</span>
+            </div>
+          </div>
+          <div className="p-3 rounded-xl bg-surface-container-low flex flex-col justify-between border border-outline-variant/20">
+            <span className="font-label-sm text-xs text-on-surface-variant font-medium">
+              Formula Penyesuaian
+            </span>
+            <div className="mt-1">
+              <span className="font-label-md text-xs text-on-surface font-bold">
+                BMR {data.profile.bmr} kkal
+              </span>
+              <span className="block font-label-sm text-[11px] text-tertiary font-semibold">
+                -200 kkal defisit
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Google Firestore Offline Sync Status Bar */}
+        <div className="flex items-center justify-between p-3 rounded-xl bg-surface-container-low border border-outline-variant/20">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-tertiary opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-tertiary" />
+            </span>
+            <span className="font-label-sm text-xs text-on-surface font-bold">
+              Sinkronisasi Cloud
+            </span>
+          </div>
+          <span className="font-label-sm text-[11px] px-2.5 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-bold flex items-center gap-1 shadow-xs">
+            <span className="material-symbols-outlined text-[14px]">cloud_done</span>
+            100% Tersinkron
+          </span>
+        </div>
+      </div>
+
+      {/* Modal Weight Logging */}
+      {weightModalOpen && (
+        <div className="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-surface-container-lowest rounded-2xl p-5 max-w-sm w-full shadow-2xl flex flex-col gap-3 border border-outline-variant/30">
+            <div className="flex items-center justify-between border-b pb-2">
+              <h3 className="font-headline-sm font-bold text-base text-on-surface">Catat Timbangan Hari Senin</h3>
+              <button onClick={() => setWeightModalOpen(false)}>
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+            <form onSubmit={handleWeightSubmit} className="flex flex-col gap-3">
+              <div>
+                <label className="text-xs font-semibold text-on-surface-variant block mb-1">
+                  Berat Badan (kg)
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  required
+                  value={newWeight}
+                  onChange={(e) => setNewWeight(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 text-lg font-bold border border-outline-variant/20"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-on-surface-variant block mb-1">
+                  Lingkar Perut (cm)
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  required
+                  value={newWaist}
+                  onChange={(e) => setNewWaist(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 text-lg font-bold border border-outline-variant/20"
+                />
+              </div>
+              <button
+                type="submit"
+                className="mt-2 w-full py-2.5 bg-primary text-on-primary rounded-full font-label-md text-xs font-bold shadow-xs active:scale-98"
+              >
+                Simpan Timbangan
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Exercise Logging */}
+      {exerciseModalOpen && (
+        <div className="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-surface-container-lowest rounded-2xl p-5 max-w-sm w-full shadow-2xl flex flex-col gap-3 border border-outline-variant/30">
+            <div className="flex items-center justify-between border-b pb-2">
+              <h3 className="font-headline-sm font-bold text-base text-on-surface">Catat Olahraga Baru</h3>
+              <button onClick={() => setExerciseModalOpen(false)}>
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+            <form onSubmit={handleExerciseSubmit} className="flex flex-col gap-3">
+              <div>
+                <label className="text-xs font-semibold text-on-surface-variant block mb-1">
+                  Jenis Olahraga
+                </label>
+                <select
+                  value={exName}
+                  onChange={(e) => setExName(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface focus:outline-none border border-outline-variant/20 text-xs font-medium"
+                >
+                  <option value="Jalan Santai + Baby Stroller">Jalan Santai + Baby Stroller</option>
+                  <option value="Senam Postpartum">Senam Postpartum</option>
+                  <option value="Gentle Yoga">Gentle Yoga</option>
+                  <option value="Brisk Walking">Brisk Walking</option>
+                  <option value="HIIT Ringan">HIIT Ringan</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs font-semibold text-on-surface-variant block mb-1">
+                    Durasi (menit)
+                  </label>
+                  <input
+                    type="number"
+                    min="5"
+                    max="180"
+                    required
+                    value={exDuration}
+                    onChange={(e) => setExDuration(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface border border-outline-variant/20 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-on-surface-variant block mb-1">
+                    Intensitas
+                  </label>
+                  <select
+                    value={exIntensity}
+                    onChange={(e) => setExIntensity(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface border border-outline-variant/20 text-xs font-medium"
+                  >
+                    <option value="Ringan">Ringan</option>
+                    <option value="Sedang">Sedang</option>
+                    <option value="Tinggi">Tinggi</option>
+                  </select>
+                </div>
+              </div>
+              <button
+                type="submit"
+                className="mt-2 w-full py-2.5 bg-primary text-on-primary rounded-full font-label-md text-xs font-bold shadow-xs active:scale-98"
+              >
+                Simpan Olahraga
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Profile / Settings */}
+      {settingsModalOpen && (
+        <div className="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-surface-container-lowest rounded-2xl p-5 max-w-sm w-full shadow-2xl flex flex-col gap-3 border border-outline-variant/30">
+            <div className="flex items-center justify-between border-b pb-2">
+              <h3 className="font-headline-sm font-bold text-base text-on-surface">Ubah Profil & Target</h3>
+              <button onClick={() => setSettingsModalOpen(false)}>
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+            <form onSubmit={handleSaveSettings} className="flex flex-col gap-3 text-xs">
+              <div>
+                <label className="font-semibold block mb-1">Target Kalori Harian (kkal):</label>
+                <input
+                  type="number"
+                  required
+                  value={editCalorieTarget}
+                  onChange={(e) => setEditCalorieTarget(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface border border-outline-variant/20"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-semibold block mb-1">IF Mulai:</label>
+                  <input
+                    type="time"
+                    value={editIfStart}
+                    onChange={(e) => setEditIfStart(e.target.value)}
+                    className="w-full p-2 rounded-xl bg-surface-container-low text-on-surface border border-outline-variant/20"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold block mb-1">IF Selesai:</label>
+                  <input
+                    type="time"
+                    value={editIfEnd}
+                    onChange={(e) => setEditIfEnd(e.target.value)}
+                    className="w-full p-2 rounded-xl bg-surface-container-low text-on-surface border border-outline-variant/20"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 p-2 bg-surface-container-low rounded-xl border border-outline-variant/20">
+                <input
+                  type="checkbox"
+                  id="nursingCheck"
+                  checked={isNursing}
+                  onChange={(e) => setIsNursing(e.target.checked)}
+                  className="accent-primary w-4 h-4 cursor-pointer"
+                />
+                <label htmlFor="nursingCheck" className="font-semibold cursor-pointer">
+                  Status Ibu Menyusui (ASI)
+                </label>
+              </div>
+              <button
+                type="submit"
+                className="mt-2 w-full py-2.5 bg-primary text-on-primary rounded-full font-label-md text-xs font-bold shadow-xs active:scale-98"
+              >
+                Simpan Perubahan
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -563,7 +563,7 @@ export default function ProgressScreen() {
               {data.profile.name}
             </h4>
             <span className="font-body-sm text-xs text-on-surface-variant">
-              {data.profile.age} tahun • {data.profile.isNursing ? 'Ibu Menyusui (ASI)' : 'Umum'} • {data.profile.height} cm
+              {data.profile.age} tahun • {data.profile.isNursing ? 'Ibu Menyusui (ASI)' : 'Umum (Tidak Menyusui)'} • {data.profile.height} cm
             </span>
           </div>
         </div>

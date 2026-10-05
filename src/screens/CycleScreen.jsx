@@ -445,7 +445,7 @@ export default function CycleScreen() {
               <strong>Bahan:</strong> 1 ikat bayam segar, 1 buah jagung manis pipil, 2 butir bawang merah, temu kunci, 1 ekor ikan nila/kembung dibumbui kemangi & kunyit kukus.
             </p>
             <p className="text-xs text-on-surface-variant leading-relaxed">
-              <strong>Keunggulan Laktasi:</strong> Tinggi zat besi, kaya vitamin K, asam folat, dan asam lemak omega-3 untuk kualitas ASI serta energi postpartum Bunda.
+              <strong>Keunggulan Nutrisi:</strong> Tinggi zat besi, kaya vitamin K, asam folat, dan asam lemak omega-3 untuk metabolisme aktif serta energi kebugaran Bunda.
             </p>
             <div className="p-2.5 bg-secondary-fixed rounded-xl text-xs font-bold text-on-secondary-fixed text-center">
               Estimasi: ~280 kkal per porsi lengkap

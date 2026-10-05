@@ -261,7 +261,7 @@ export default function DashboardScreen() {
               )}
             </p>
             <p className="font-label-sm text-[11px] text-on-surface-variant mt-0.5 leading-snug">
-              Tetap berenergi saat menyusui & berpuasa seimbang.
+              Tetap berenergi saat defisit & berpuasa seimbang.
             </p>
           </div>
         </div>
@@ -376,7 +376,7 @@ export default function DashboardScreen() {
               </div>
               <div>
                 <p className="font-label-lg text-sm text-on-surface font-bold">
-                  Hidrasi Menyusui
+                  {data.profile.isNursing ? 'Hidrasi Menyusui' : 'Target Hidrasi Harian'}
                 </p>
                 <p className="font-body-sm text-xs text-on-surface-variant">
                   {(data.waterGlasses * 0.25).toFixed(1)} dari 2.5 Liter tercapai

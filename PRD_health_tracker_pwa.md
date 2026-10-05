@@ -10,12 +10,13 @@
 Aplikasi PWA personal untuk perempuan Indonesia yang ingin menurunkan berat badan dengan pendekatan **holistik** — menggabungkan defisit kalori, Intermittent Fasting, puasa Senin-Kamis, dan siklus hormon bulanan — dalam satu platform yang mudah dipakai dari HP.
 
 ### Target User
-**Persona:** Perempuan / Ibu muda usia 30 tahun, **tidak menyusui (non-laktasi)**, fokus penurunan berat badan & defisit kalori seimbang, ekonomi menengah, memasak mengikuti keluarga, tidak punya banyak waktu, akses HP setiap saat.
+**Persona:** Perempuan / Ibu usia 30 tahun, **TIDAK MENYUSUI (Non-Laktasi / Umum)**, fokus pada defisit kalori seimbang & penurunan berat badan sehat, ekonomi menengah, memasak mengikuti keluarga, tidak punya banyak waktu, akses HP setiap saat.
+- **Kondisi Khusus:** **Tidak Menyusui.** Tidak ada alokasi kalori tambahan untuk laktasi; target kalori dihitung murni dari defisit BMR/TDEE standar untuk penurunan berat badan optimal (1.300 kkal/hari).
 
 ### Tujuan Utama
 - Bantu user mencapai target turun BB 3 kg/bulan
 - Beri alert real-time jika kalori melebihi batas
-- Track IF timer, puasa Senin-Kamis, dan fase hormon secara otomatis
+- Track IF timer, puasa Senin-Kamis, dan fase hormon secara otomatis (Siklus: Haid 23 Sept - 1 Okt 2026)
 - Waktu Maghrib akurat otomatis berdasarkan lokasi GPS
 - Full offline support (tetap bisa log & cek timer tanpa internet, auto-sync ke Google/Firestore saat online)
 
@@ -46,12 +47,12 @@ Aplikasi PWA personal untuk perempuan Indonesia yang ingin menurunkan berat bada
 **Halaman utama yang muncul saat buka app.**
 
 Komponen:
-- **Header:** Nama user + foto Google + tanggal hari ini
-- **Fase Hormon Card:** Ikon + nama fase + tips singkat hari ini
+- **Header:** Nama user + status profil ("Program Defisit Terarah", Tidak Menyusui) + tanggal hari ini
+- **Fase Hormon Card:** Ikon + nama fase (saat ini Hari ke-13, Fase Folikuler akhir) + tips energi prima hari ini
 - **IF Timer Card:** Countdown timer eating window / puasa aktif
-- **Kalori Ring:** Donut chart kalori terpakai vs target (warna berubah merah jika >90%)
+- **Kalori Ring:** Donut chart kalori terpakai vs target 1.300 kkal (warna berubah merah jika >90%)
 - **Quick Log Button:** Tombol besar "➕ Tambah Makan" di tengah bawah
-- **Summary Bar:** Ringkasan olahraga + air minum hari ini
+- **Summary Bar:** Ringkasan olahraga mingguan + target hidrasi 8 gelas (2 L) air
 - **Puasa Senin-Kamis Badge:** Muncul di hari Senin & Kamis
 
 ---
@@ -235,7 +236,7 @@ Semua push notification bisa dikustomisasi on/off per kategori:
 
 ```
 users/{userId}
-  ├── profile: { nama, tinggi, beratAwal, targetBerat, usia, hpht, siklusPanjang, ... }
+  ├── profile: { nama, tinggi, beratAwal, targetBerat, usia, isNursing: false, kondisiLaktasi: 'tidak_menyusui', hpht: '2026-09-23', periodEnd: '2026-10-01', periodDuration: 9, siklusPanjang: 28, ... }
   ├── dailyLogs/{tanggal}
   │   ├── meals: [{ nama, kalori, waktu, porsi }]
   │   ├── exercise: [{ jenis, durasi, intensitas, kaloriTerbakar }]

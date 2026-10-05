@@ -191,7 +191,7 @@ export default function LogMakanScreen() {
                 </span>
               ) : (
                 <span>
-                  <strong>Aman & Terjaga:</strong> Ritme asupan nutrisi seimbang untuk pemulihan & menyusui.
+                  <strong>Aman & Terjaga:</strong> Ritme asupan nutrisi seimbang untuk defisit kalori & kebugaran harian.
                 </span>
               )}
             </p>

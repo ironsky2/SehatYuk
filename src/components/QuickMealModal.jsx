@@ -24,7 +24,7 @@ export default function QuickMealModal() {
     { name: 'Nasi Merah + Telur Dadar & Buncis', cal: 350, cat: 'Sahur' },
     { name: '3 Butir Kurma Ajwa + Air Hangat', cal: 60, cat: 'Buka Puasa' },
     { name: 'Sup Ayam Jagung & Tahu Kukus', cal: 310, cat: 'Buka Puasa' },
-    { name: 'Oatmeal Pisang & Susu Laktasi', cal: 220, cat: 'Makan 1' },
+    { name: 'Oatmeal Pisang & Susu Almond', cal: 220, cat: 'Makan 1' },
     { name: 'Pepes Ikan & Sayur Bening Bayam', cal: 280, cat: 'Makan Malam' }
   ];
 

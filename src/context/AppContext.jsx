@@ -60,16 +60,25 @@ export function AppProvider({ children }) {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Ensure profile updates from latest requirements
+        // Ensure default structure and profile updates from latest requirements
         return {
+          ...defaultState,
           ...parsed,
           profile: {
+            ...defaultState.profile,
             ...parsed.profile,
+            coords: {
+              lat: parsed.profile?.coords?.lat ?? defaultState.profile.coords.lat,
+              lng: parsed.profile?.coords?.lng ?? defaultState.profile.coords.lng
+            },
             isNursing: false,
-            hpht: parsed.profile?.hpht || '2026-09-23',
-            periodEnd: parsed.profile?.periodEnd || '2026-10-01',
+            hpht: parsed.profile?.hpht || defaultState.profile.hpht,
+            periodEnd: parsed.profile?.periodEnd || defaultState.profile.periodEnd,
             periodDuration: 9
-          }
+          },
+          meals: Array.isArray(parsed.meals) ? parsed.meals : [],
+          exercises: Array.isArray(parsed.exercises) ? parsed.exercises : [],
+          weightLogs: Array.isArray(parsed.weightLogs) ? parsed.weightLogs : []
         };
       }
     } catch (e) {
@@ -90,10 +99,31 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
 
-    getCurrentUser().then((user) => {
-      if (user) {
+    try {
+      getCurrentUser()
+        .then((user) => {
+          if (user) {
+            setAuthUser(user);
+            if (user.user_metadata?.full_name) {
+              setData((prev) => ({
+                ...prev,
+                profile: {
+                  ...prev.profile,
+                  name: user.user_metadata.full_name || prev.profile.name,
+                  avatar: user.user_metadata.avatar_url || prev.profile.avatar
+                }
+              }));
+            }
+          }
+        })
+        .catch((err) => {
+          console.warn('Auth get user error:', err);
+        });
+
+      const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+        const user = session?.user || null;
         setAuthUser(user);
-        if (user.user_metadata?.full_name) {
+        if (user && user.user_metadata?.full_name) {
           setData((prev) => ({
             ...prev,
             profile: {
@@ -103,27 +133,14 @@ export function AppProvider({ children }) {
             }
           }));
         }
-      }
-    });
+      });
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      const user = session?.user || null;
-      setAuthUser(user);
-      if (user && user.user_metadata?.full_name) {
-        setData((prev) => ({
-          ...prev,
-          profile: {
-            ...prev.profile,
-            name: user.user_metadata.full_name || prev.profile.name,
-            avatar: user.user_metadata.avatar_url || prev.profile.avatar
-          }
-        }));
-      }
-    });
-
-    return () => {
-      authListener?.subscription?.unsubscribe();
-    };
+      return () => {
+        authListener?.subscription?.unsubscribe();
+      };
+    } catch (err) {
+      console.warn('Supabase auth listener initialization error:', err);
+    }
   }, []);
 
   // Sync state to LocalStorage

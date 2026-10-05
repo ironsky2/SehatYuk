@@ -1,14 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
 
-// Check if valid credentials are provided
+// Check if valid credentials are provided (not default placeholders)
 export const isSupabaseConfigured = Boolean(
   supabaseUrl &&
   supabaseAnonKey &&
-  supabaseUrl !== 'https://your-project-id.supabase.co' &&
-  supabaseAnonKey !== 'your_supabase_anon_key_here'
+  !supabaseUrl.includes('your-project-id') &&
+  !supabaseAnonKey.includes('your_supabase_anon_key')
 );
 
 // Initialize client with localStorage session persistence
@@ -27,36 +27,58 @@ export const supabase = isSupabaseConfigured
 // ==========================================
 
 export async function signInWithEmail(email, password) {
-  if (!isSupabaseConfigured) return { data: null, error: new Error('Supabase not configured') };
-  return await supabase.auth.signInWithPassword({ email, password });
+  if (!isSupabaseConfigured || !supabase) return { data: null, error: new Error('Supabase not configured') };
+  try {
+    return await supabase.auth.signInWithPassword({ email, password });
+  } catch (err) {
+    return { data: null, error: err };
+  }
 }
 
 export async function signUpWithEmail(email, password, metadata = {}) {
-  if (!isSupabaseConfigured) return { data: null, error: new Error('Supabase not configured') };
-  return await supabase.auth.signUp({
-    email,
-    password,
-    options: { data: metadata }
-  });
+  if (!isSupabaseConfigured || !supabase) return { data: null, error: new Error('Supabase not configured') };
+  try {
+    return await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: metadata }
+    });
+  } catch (err) {
+    return { data: null, error: err };
+  }
 }
 
 export async function signInWithGoogle() {
-  if (!isSupabaseConfigured) return { data: null, error: new Error('Supabase not configured') };
-  return await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: window.location.origin }
-  });
+  if (!isSupabaseConfigured || !supabase) return { data: null, error: new Error('Supabase not configured') };
+  try {
+    return await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin }
+    });
+  } catch (err) {
+    return { data: null, error: err };
+  }
 }
 
 export async function signOutUser() {
-  if (!isSupabaseConfigured) return { error: null };
-  return await supabase.auth.signOut();
+  if (!isSupabaseConfigured || !supabase) return { error: null };
+  try {
+    return await supabase.auth.signOut();
+  } catch (err) {
+    return { error: err };
+  }
 }
 
 export async function getCurrentUser() {
-  if (!isSupabaseConfigured) return null;
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
+  if (!isSupabaseConfigured || !supabase) return null;
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (error) return null;
+    return data?.user || null;
+  } catch (err) {
+    console.warn('Supabase getUser warning:', err);
+    return null;
+  }
 }
 
 // ==========================================
@@ -64,54 +86,69 @@ export async function getCurrentUser() {
 // ==========================================
 
 export async function syncUserProfile(profileData) {
-  if (!isSupabaseConfigured) return null;
-  const user = await getCurrentUser();
-  if (!user) return null;
+  if (!isSupabaseConfigured || !supabase) return null;
+  try {
+    const user = await getCurrentUser();
+    if (!user) return null;
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .upsert({
-      id: user.id,
-      ...profileData,
-      updated_at: new Date().toISOString()
-    })
-    .select()
-    .single();
+    const { data, error } = await supabase
+      .from('profiles')
+      .upsert({
+        id: user.id,
+        ...profileData,
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
 
-  if (error) console.error('Error syncing profile:', error);
-  return data;
+    if (error) console.warn('Supabase sync profile warning:', error);
+    return data;
+  } catch (err) {
+    console.warn('Supabase sync profile catch:', err);
+    return null;
+  }
 }
 
 export async function syncWaterLog(log) {
-  if (!isSupabaseConfigured) return null;
-  const user = await getCurrentUser();
-  if (!user) return null;
+  if (!isSupabaseConfigured || !supabase) return null;
+  try {
+    const user = await getCurrentUser();
+    if (!user) return null;
 
-  const { data, error } = await supabase
-    .from('water_logs')
-    .upsert({
-      user_id: user.id,
-      ...log,
-      updated_at: new Date().toISOString()
-    });
+    const { data, error } = await supabase
+      .from('water_logs')
+      .upsert({
+        user_id: user.id,
+        ...log,
+        updated_at: new Date().toISOString()
+      });
 
-  if (error) console.error('Error syncing water log:', error);
-  return data;
+    if (error) console.warn('Supabase sync water log warning:', error);
+    return data;
+  } catch (err) {
+    console.warn('Supabase sync water catch:', err);
+    return null;
+  }
 }
 
 export async function syncHealthLog(log) {
-  if (!isSupabaseConfigured) return null;
-  const user = await getCurrentUser();
-  if (!user) return null;
+  if (!isSupabaseConfigured || !supabase) return null;
+  try {
+    const user = await getCurrentUser();
+    if (!user) return null;
 
-  const { data, error } = await supabase
-    .from('health_logs')
-    .upsert({
-      user_id: user.id,
-      ...log,
-      updated_at: new Date().toISOString()
-    });
+    const { data, error } = await supabase
+      .from('health_logs')
+      .upsert({
+        user_id: user.id,
+        ...log,
+        updated_at: new Date().toISOString()
+      });
 
-  if (error) console.error('Error syncing health log:', error);
-  return data;
+    if (error) console.warn('Supabase sync health log warning:', error);
+    return data;
+  } catch (err) {
+    console.warn('Supabase sync health catch:', err);
+    return null;
+  }
 }

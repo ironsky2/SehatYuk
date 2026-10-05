@@ -14,17 +14,21 @@ export default function DashboardScreen() {
     setQuickMealModalOpen
   } = useApp();
 
-  const [prayerTimes, setPrayerTimes] = useState(() =>
-    getPrayerTimesForDate(new Date(), data.profile.coords.lat, data.profile.coords.lng)
-  );
+  const [prayerTimes, setPrayerTimes] = useState(() => {
+    const lat = data.profile?.coords?.lat ?? -6.2615;
+    const lng = data.profile?.coords?.lng ?? 106.8106;
+    return getPrayerTimesForDate(new Date(), lat, lng);
+  });
 
   const [countdownText, setCountdownText] = useState('02:18:40');
   const [waterButtonFeedback, setWaterButtonFeedback] = useState(false);
 
   // Recalculate prayer times if coords change
   useEffect(() => {
-    setPrayerTimes(getPrayerTimesForDate(new Date(), data.profile.coords.lat, data.profile.coords.lng));
-  }, [data.profile.coords]);
+    const lat = data.profile?.coords?.lat ?? -6.2615;
+    const lng = data.profile?.coords?.lng ?? 106.8106;
+    setPrayerTimes(getPrayerTimesForDate(new Date(), lat, lng));
+  }, [data.profile?.coords]);
 
   // Real-time ticking countdown to Imsak or Maghrib
   useEffect(() => {

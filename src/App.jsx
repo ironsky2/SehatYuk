@@ -10,11 +10,17 @@ import LogMakanScreen from './screens/LogMakanScreen';
 import FastingScreen from './screens/FastingScreen';
 import CycleScreen from './screens/CycleScreen';
 import ProgressScreen from './screens/ProgressScreen';
+import OnboardingAuthScreen from './screens/OnboardingAuthScreen';
 
 export default function App() {
-  const { activeTab } = useApp();
+  const { activeTab, hasCompletedOnboarding, completeOnboarding, authUser } = useApp();
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
+
+  // Show intro slides & authentication screen on first visit
+  if (!hasCompletedOnboarding && !authUser) {
+    return <OnboardingAuthScreen onComplete={completeOnboarding} />;
+  }
 
   // PWA Install prompt listener
   useEffect(() => {

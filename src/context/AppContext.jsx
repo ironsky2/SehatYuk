@@ -95,6 +95,32 @@ export function AppProvider({ children }) {
   const [hasAlertedOverLimit, setHasAlertedOverLimit] = useState(false);
   const [authUser, setAuthUser] = useState(null);
 
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(() => {
+    try {
+      return localStorage.getItem('sehat_yuk_onboarding_completed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const completeOnboarding = () => {
+    setHasCompletedOnboarding(true);
+    try {
+      localStorage.setItem('sehat_yuk_onboarding_completed', 'true');
+    } catch (e) {
+      console.error('Failed to save onboarding state:', e);
+    }
+  };
+
+  const resetOnboarding = () => {
+    setHasCompletedOnboarding(false);
+    try {
+      localStorage.removeItem('sehat_yuk_onboarding_completed');
+    } catch (e) {
+      console.error('Failed to reset onboarding state:', e);
+    }
+  };
+
   // Check Supabase Auth state and listen to login changes
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
@@ -472,6 +498,9 @@ export function AppProvider({ children }) {
         isSyncing,
         authUser,
         isSupabaseConfigured,
+        hasCompletedOnboarding,
+        completeOnboarding,
+        resetOnboarding,
         handleGoogleSignIn,
         handleSignOut,
         clearAllData,

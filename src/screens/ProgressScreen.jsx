@@ -9,6 +9,7 @@ export default function ProgressScreen() {
     handleGoogleSignIn,
     handleSignOut,
     clearAllData,
+    resetOnboarding,
     isSupabaseConfigured,
     consumeMie,
     resetMieTracker,
@@ -722,6 +723,15 @@ export default function ProgressScreen() {
           >
             <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
             Hapus Semua Data & Mulai Baru
+          </button>
+
+          {/* Buka Ulang Slide Pengenalan Aplikasi */}
+          <button
+            onClick={resetOnboarding}
+            className="w-full py-2 px-3 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface-variant font-label-sm text-xs font-semibold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+          >
+            <span className="material-symbols-outlined text-[16px]">slideshow</span>
+            Lihat Ulang Slide Pengenalan Aplikasi
           </button>
         </div>
       </div>

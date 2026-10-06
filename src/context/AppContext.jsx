@@ -251,61 +251,144 @@ export function AppProvider({ children }) {
     }
   };
 
-  // Ambil data dari Cloud Supabase saat login pertama kali
+  // Smart Merge Profile agar data lokal tidak ditimpa string kosong/null dari Cloud saat refresh
+  function mergeProfileData(localProf, remoteProf, defaultProf) {
+    const p1 = localProf || {};
+    const p2 = remoteProf || {};
+    const d = defaultProf || defaultState.profile;
+
+    const pick = (val1, val2, fallback) => {
+      if (val1 !== undefined && val1 !== null && val1 !== '') return val1;
+      if (val2 !== undefined && val2 !== null && val2 !== '') return val2;
+      return fallback;
+    };
+
+    const merged = {
+      ...d,
+      ...p2,
+      ...p1,
+      name: pick(p1.name, p2.name, d.name),
+      avatar: pick(p1.avatar, p2.avatar, d.avatar),
+      age: pick(p1.age, p2.age, d.age),
+      height: pick(p1.height, p2.height, d.height),
+      startWeight: pick(p1.startWeight, p2.startWeight, d.startWeight),
+      currentWeight: pick(p1.currentWeight, p2.currentWeight, d.currentWeight),
+      targetWeight: pick(p1.targetWeight, p2.targetWeight, d.targetWeight),
+      waistCircumference: pick(p1.waistCircumference, p2.waistCircumference, d.waistCircumference),
+      dailyCalorieTarget: pick(p1.dailyCalorieTarget, p2.dailyCalorieTarget, d.dailyCalorieTarget),
+      isNursing: p1.isNursing !== undefined ? Boolean(p1.isNursing) : Boolean(p2.isNursing),
+      hpht: pick(p1.hpht, p2.hpht, d.hpht),
+      periodEnd: pick(p1.periodEnd, p2.periodEnd, d.periodEnd),
+      periodDuration: pick(p1.periodDuration, p2.periodDuration, d.periodDuration),
+      cycleLength: pick(p1.cycleLength, p2.cycleLength, d.cycleLength),
+      city: pick(p1.city, p2.city, d.city),
+      coords: p1.coords || p2.coords || d.coords,
+      nameCustom: Boolean(p1.nameCustom || p2.nameCustom)
+    };
+
+    return {
+      ...merged,
+      ...computeEnergy(merged)
+    };
+  }
+
+  // Ambil data dari Cloud Supabase saat login / refresh session (Smart Merge + Zero Data Loss)
   const loadCloudData = async (user) => {
     if (!isSupabaseConfigured || !user) return;
     try {
       setIsSyncing(true);
       setSyncStatus('syncing');
-      const remoteState = await fetchAppState();
-      if (
-        remoteState &&
-        (remoteState.meals?.length ||
-          remoteState.weightLogs?.length ||
-          remoteState.exercises?.length ||
-          remoteState.profile?.nameCustom)
-      ) {
-        setData((local) => {
-          const localMealIds = new Set(local.meals.map((m) => m.id));
-          const remoteMeals = Array.isArray(remoteState.meals) ? remoteState.meals : [];
-          const mergedMeals = [
-            ...local.meals,
-            ...remoteMeals.filter((m) => !localMealIds.has(m.id))
-          ].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 
-          const localWeightDates = new Set(local.weightLogs.map((w) => w.dateISO));
-          const remoteWeights = Array.isArray(remoteState.weightLogs) ? remoteState.weightLogs : [];
-          const mergedWeights = [
-            ...local.weightLogs,
-            ...remoteWeights.filter((w) => !localWeightDates.has(w.dateISO))
-          ].sort((a, b) => String(a.dateISO || '').localeCompare(String(b.dateISO || '')));
+      // Ambil data dari tabel user_state DAN tabel profiles sekaligus
+      const [remoteState, remoteProfile] = await Promise.all([
+        fetchAppState(),
+        fetchUserProfile()
+      ]);
 
-          const localExIds = new Set(local.exercises.map((e) => e.id));
-          const remoteEx = Array.isArray(remoteState.exercises) ? remoteState.exercises : [];
-          const mergedExercises = [
-            ...local.exercises,
-            ...remoteEx.filter((e) => !localExIds.has(e.id))
-          ];
+      const dbProfile = remoteProfile ? {
+        name: remoteProfile.name || undefined,
+        age: remoteProfile.age || undefined,
+        height: remoteProfile.height || undefined,
+        startWeight: remoteProfile.start_weight || undefined,
+        currentWeight: remoteProfile.current_weight || undefined,
+        targetWeight: remoteProfile.target_weight || undefined,
+        waistCircumference: remoteProfile.waist_circumference || undefined,
+        dailyCalorieTarget: remoteProfile.daily_calorie_target || undefined,
+        bmr: remoteProfile.bmr || undefined,
+        tdee: remoteProfile.tdee || undefined,
+        isNursing: remoteProfile.is_nursing !== undefined ? remoteProfile.is_nursing : undefined,
+        hpht: remoteProfile.period_start || undefined,
+        periodEnd: remoteProfile.period_end || undefined
+      } : {};
 
-          return normalizeData({
-            ...defaultState,
-            ...remoteState,
-            ...local,
-            profile: {
-              ...defaultState.profile,
-              ...remoteState.profile,
-              ...local.profile
-            },
-            meals: mergedMeals,
-            weightLogs: mergedWeights,
-            exercises: mergedExercises
-          });
+      const combinedRemoteProfile = {
+        ...dbProfile,
+        ...(remoteState?.profile || {})
+      };
+
+      setData((local) => {
+        let currentLocal = local;
+        try {
+          const rawLocal = localStorage.getItem(STORAGE_KEY);
+          if (rawLocal) {
+            const parsed = JSON.parse(rawLocal);
+            if (parsed) currentLocal = parsed;
+          }
+        } catch {}
+
+        const mergedProfile = mergeProfileData(
+          currentLocal.profile,
+          combinedRemoteProfile,
+          defaultState.profile
+        );
+
+        const localMeals = Array.isArray(currentLocal.meals) ? currentLocal.meals : [];
+        const remoteMeals = Array.isArray(remoteState?.meals) ? remoteState.meals : [];
+        const localMealIds = new Set(localMeals.map((m) => m.id));
+        const mergedMeals = [
+          ...localMeals,
+          ...remoteMeals.filter((m) => !localMealIds.has(m.id))
+        ].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+
+        const localWeights = Array.isArray(currentLocal.weightLogs) ? currentLocal.weightLogs : [];
+        const remoteWeights = Array.isArray(remoteState?.weightLogs) ? remoteState.weightLogs : [];
+        const localWeightDates = new Set(localWeights.map((w) => w.dateISO));
+        const mergedWeights = [
+          ...localWeights,
+          ...remoteWeights.filter((w) => !localWeightDates.has(w.dateISO))
+        ].sort((a, b) => String(a.dateISO || '').localeCompare(String(b.dateISO || '')));
+
+        const localEx = Array.isArray(currentLocal.exercises) ? currentLocal.exercises : [];
+        const remoteEx = Array.isArray(remoteState?.exercises) ? remoteState.exercises : [];
+        const localExIds = new Set(localEx.map((e) => e.id));
+        const mergedExercises = [
+          ...localEx,
+          ...remoteEx.filter((e) => !localExIds.has(e.id))
+        ];
+
+        const mergedState = normalizeData({
+          ...defaultState,
+          ...(remoteState || {}),
+          ...currentLocal,
+          profile: mergedProfile,
+          meals: mergedMeals,
+          weightLogs: mergedWeights,
+          exercises: mergedExercises
         });
-        showNotification('Data Cloud Terhubung ☁️', 'Catatan kalori, berat badan, dan profil Bunda berhasil disinkronkan.');
-      } else {
-        // Upload initial local data to cloud
-        await syncToCloud(rawData, user);
-      }
+
+        // Simpan seketika ke localStorage
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedState));
+        } catch (e) {
+          console.error('Failed to save merged state to localStorage:', e);
+        }
+
+        // Upload kembali hasil gabungan ke Supabase agar Cloud tersinkronkan penuh
+        syncToCloud(mergedState, user);
+
+        return mergedState;
+      });
+
       setSyncStatus('synced');
       const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
       setLastSyncedAt(timeStr);
@@ -421,6 +504,17 @@ export function AppProvider({ children }) {
     } catch (e) {
       console.error('Failed to persist state:', e);
     }
+  }, [rawData]);
+
+  // Listener beforeunload agar saat refresh (F5) data dijamin tidak hilang dari disk
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(rawData));
+      } catch {}
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [rawData]);
 
   // Debounced Auto-sync ke Cloud Supabase saat data lokal berubah
@@ -544,10 +638,16 @@ export function AppProvider({ children }) {
       analyzedByAi: Boolean(newMeal.analyzedByAi)
     };
 
-    setData((prev) => ({
-      ...prev,
-      meals: [item, ...prev.meals]
-    }));
+    setData((prev) => {
+      const nextState = {
+        ...prev,
+        meals: [item, ...prev.meals]
+      };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
+      } catch {}
+      return nextState;
+    });
 
     confetti({
       particleCount: 25,
@@ -558,17 +658,29 @@ export function AppProvider({ children }) {
   };
 
   const deleteMeal = (id) => {
-    setData((prev) => ({
-      ...prev,
-      meals: prev.meals.filter((m) => m.id !== id)
-    }));
+    setData((prev) => {
+      const nextState = {
+        ...prev,
+        meals: prev.meals.filter((m) => m.id !== id)
+      };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
+      } catch {}
+      return nextState;
+    });
   };
 
   const editMeal = (id, updatedFields) => {
-    setData((prev) => ({
-      ...prev,
-      meals: prev.meals.map((m) => (m.id === id ? { ...m, ...updatedFields } : m))
-    }));
+    setData((prev) => {
+      const nextState = {
+        ...prev,
+        meals: prev.meals.map((m) => (m.id === id ? { ...m, ...updatedFields } : m))
+      };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
+      } catch {}
+      return nextState;
+    });
   };
 
   const addWaterGlass = () => {
@@ -585,7 +697,11 @@ export function AppProvider({ children }) {
         });
         showNotification('Target Hidrasi Tercapai! 💧', 'Alhamdulillah, 8 gelas (2 Liter) air hari ini sudah terpenuhi.');
       }
-      return { ...prev, waterGlasses: next, waterDate: todayNow };
+      const nextState = { ...prev, waterGlasses: next, waterDate: todayNow };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
+      } catch {}
+      return nextState;
     });
   };
 
@@ -653,7 +769,13 @@ export function AppProvider({ children }) {
         currentWeight: latest.weight,
         waistCircumference: latest.waist
       };
-      return { ...prev, profile: { ...profile, ...computeEnergy(profile) }, weightLogs: merged };
+      const nextState = { ...prev, profile: { ...profile, ...computeEnergy(profile) }, weightLogs: merged };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
+      } catch (e) {
+        console.error('Failed to persist weight log:', e);
+      }
+      return nextState;
     });
 
     confetti({
@@ -694,12 +816,25 @@ export function AppProvider({ children }) {
     });
   };
 
-  const updateProfile = (fields) => {
+  const updateProfile = async (fields) => {
+    let nextState = null;
     setData((prev) => {
       const profile = { ...prev.profile, ...fields };
-      if ('name' in fields) profile.nameCustom = true;
-      return { ...prev, profile: { ...profile, ...computeEnergy(profile) } };
+      if ('name' in fields && fields.name) profile.nameCustom = true;
+      nextState = { ...prev, profile: { ...profile, ...computeEnergy(profile) } };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
+      } catch (e) {
+        console.error('Failed to persist profile to localStorage:', e);
+      }
+      return nextState;
     });
+
+    // Sinkronisasi seketika ke Cloud Supabase jika pengguna login & online
+    if (nextState && authUser && navigator.onLine) {
+      await syncToCloud(nextState, authUser);
+    }
+    return nextState;
   };
 
   const togglePuasaSunnah = () => {

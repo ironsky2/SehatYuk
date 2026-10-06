@@ -89,6 +89,10 @@ export async function signOutUser() {
 export async function getCurrentUser() {
   if (!isSupabaseConfigured || !supabase) return null;
   try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData?.session?.user) {
+      return sessionData.session.user;
+    }
     const { data, error } = await supabase.auth.getUser();
     if (error) return null;
     return data?.user || null;
@@ -112,8 +116,8 @@ export async function syncUserProfile(profileData) {
     const user = await getCurrentUser();
     if (!user) return null;
 
-    // Filter fields to match profiles table schema safely
-    const cleanPayload = {
+    // Base payload yang dijamin ada di semua skema
+    const basePayload = {
       id: user.id,
       name: profileData?.name?.trim?.() || null,
       gender: 'female',
@@ -124,13 +128,36 @@ export async function syncUserProfile(profileData) {
       updated_at: new Date().toISOString()
     };
 
-    const { data, error } = await supabase
+    // Extended payload dengan seluruh metrik kesehatan
+    const extendedPayload = {
+      ...basePayload,
+      age: Number(profileData?.age) || null,
+      height: Number(profileData?.height) || null,
+      start_weight: Number(profileData?.startWeight) || null,
+      current_weight: Number(profileData?.currentWeight) || null,
+      target_weight: Number(profileData?.targetWeight) || null,
+      waist_circumference: Number(profileData?.waistCircumference) || null,
+      daily_calorie_target: Number(profileData?.dailyCalorieTarget) || 1400,
+      bmr: Number(profileData?.bmr) || null,
+      tdee: Number(profileData?.tdee) || null
+    };
+
+    let { data, error } = await supabase
       .from('profiles')
-      .upsert(cleanPayload)
+      .upsert(extendedPayload)
       .select()
       .maybeSingle();
 
-    if (error) console.warn('Supabase sync profile warning:', error.message);
+    if (error) {
+      // Jika kolom extended belum ada di tabel profiles Supabase, fallback ke basePayload
+      const fallbackRes = await supabase
+        .from('profiles')
+        .upsert(basePayload)
+        .select()
+        .maybeSingle();
+      data = fallbackRes.data;
+    }
+
     return data;
   } catch (err) {
     console.warn('Supabase sync profile catch:', err);

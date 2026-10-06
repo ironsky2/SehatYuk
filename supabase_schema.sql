@@ -8,6 +8,15 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   name TEXT,
   gender TEXT DEFAULT 'female',
+  age NUMERIC,
+  height NUMERIC,
+  start_weight NUMERIC,
+  current_weight NUMERIC,
+  target_weight NUMERIC,
+  waist_circumference NUMERIC,
+  daily_calorie_target INTEGER DEFAULT 1400,
+  bmr INTEGER,
+  tdee INTEGER,
   is_nursing BOOLEAN DEFAULT false,
   period_start DATE,
   period_end DATE,
@@ -15,6 +24,17 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Migrasi jika tabel profiles sudah pernah dibuat sebelumnya:
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS age NUMERIC;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS height NUMERIC;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS start_weight NUMERIC;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS current_weight NUMERIC;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS target_weight NUMERIC;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS waist_circumference NUMERIC;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS daily_calorie_target INTEGER DEFAULT 1400;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS bmr INTEGER;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS tdee INTEGER;
 
 -- 2. Tabel Catatan Minum Air Harian
 CREATE TABLE IF NOT EXISTS public.water_logs (

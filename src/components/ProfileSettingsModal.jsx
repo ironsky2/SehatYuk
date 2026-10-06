@@ -27,6 +27,7 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
   const [activeTab, setActiveTab] = useState('profil'); // 'profil' | 'akun'
   const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
   const [isSavedToast, setIsSavedToast] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Form profile state
   const [name, setName] = useState('');
@@ -96,8 +97,9 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
     }
   };
 
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     if (e) e.preventDefault();
+    setIsSaving(true);
     const startWNum = Number(startWeight) || null;
     const currentWNum = Number(currentWeight) || null;
     const targetWNum = Number(targetWeight) || null;
@@ -109,6 +111,7 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
       age: Number(age) || null,
       height: Number(height) || null,
       startWeight: startWNum || currentWNum || null,
+      currentWeight: currentWNum || null,
       targetWeight: targetWNum,
       waistCircumference: waistNum,
       dailyCalorieTarget: Number(dailyCalorieTarget) || metrics.recommendedCalories || 1400,
@@ -118,20 +121,27 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
     };
 
     if (currentWNum > 0 && currentWNum !== Number(data.profile.currentWeight)) {
-      updatedFields.currentWeight = currentWNum;
       if (!updatedFields.startWeight && !data.profile.startWeight) {
         updatedFields.startWeight = currentWNum;
       }
       addWeightLog(currentWNum, waistNum, today);
     }
 
-    updateProfile(updatedFields);
-    setIsSavedToast(true);
-    showNotification('Profil Disimpan 🌸', 'Data profil dan target kalori Bunda berhasil diperbarui.');
-    setTimeout(() => {
-      setIsSavedToast(false);
+    try {
+      await updateProfile(updatedFields);
+      setIsSavedToast(true);
+      showNotification('Profil Disimpan 🌸', 'Data profil dan target kalori Bunda berhasil disinkronkan.');
+      setTimeout(() => {
+        setIsSavedToast(false);
+        onClose();
+      }, 500);
+    } catch (err) {
+      console.warn('Gagal menyimpan profil:', err);
+      showNotification('Profil Disimpan Lokal 💾', 'Data tersimpan di perangkat Bunda.');
       onClose();
-    }, 600);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleFileImport = async (e) => {
@@ -621,9 +631,15 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
             <button
               type="submit"
               form="profileForm"
-              className="w-full py-3 rounded-full bg-primary hover:bg-primary/90 text-on-primary font-bold text-xs shadow-md active:scale-98 transition-all flex items-center justify-center gap-1.5"
+              disabled={isSaving}
+              className="w-full py-3 rounded-full bg-primary hover:bg-primary/90 disabled:opacity-70 text-on-primary font-bold text-xs shadow-md active:scale-98 transition-all flex items-center justify-center gap-1.5"
             >
-              {isSavedToast ? (
+              {isSaving ? (
+                <>
+                  <span className="material-symbols-outlined text-[16px] animate-spin">sync</span>
+                  <span>Menyimpan ke Cloud...</span>
+                </>
+              ) : isSavedToast ? (
                 <>
                   <span className="material-symbols-outlined text-[16px]">check_circle</span>
                   <span>Tersimpan!</span>

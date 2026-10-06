@@ -1,21 +1,29 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import CalorieAlertBanner from '../components/CalorieAlertBanner';
+import { addDays, formatDateLabel } from '../utils/dateUtils';
 
 export default function LogMakanScreen() {
   const {
     data,
-    totalCalories,
+    today,
+    selectedDate,
+    setSelectedDate,
+    selectedMeals,
+    selectedCalories,
     calorieTarget,
-    isOverCalorieLimit,
     addMeal,
     deleteMeal,
     editMeal
   } = useApp();
 
+  const totalCalories = selectedCalories;
+  const isOverCalorieLimit = selectedCalories > calorieTarget;
+  const isToday = selectedDate === today;
+
   const [activeMealTab, setActiveMealTab] = useState('Buka Puasa');
   const [foodName, setFoodName] = useState('');
-  const [caloriesInput, setCaloriesInput] = useState('320');
+  const [caloriesInput, setCaloriesInput] = useState('');
   const [portionMultiplier, setPortionMultiplier] = useState(1.0);
   const [portionName, setPortionName] = useState('Sedang (1.0x)');
   const [saveStatus, setSaveStatus] = useState('idle');
@@ -40,6 +48,10 @@ export default function LogMakanScreen() {
       alert('Tuliskan nama makanan atau menu terlebih dahulu ya Bun 🌸');
       return;
     }
+    if (!(Number(caloriesInput) > 0)) {
+      alert('Isi estimasi kalori terlebih dahulu ya Bun 🌸');
+      return;
+    }
 
     setSaveStatus('saving');
     setTimeout(() => {
@@ -48,10 +60,12 @@ export default function LogMakanScreen() {
         calories: Number(caloriesInput),
         timeCategory: activeMealTab,
         portionMultiplier,
-        portionName
+        portionName,
+        date: selectedDate
       });
       setSaveStatus('saved');
       setFoodName('');
+      setCaloriesInput('');
       setTimeout(() => setSaveStatus('idle'), 1600);
     }, 450);
   };
@@ -66,30 +80,61 @@ export default function LogMakanScreen() {
     setEditingMeal(null);
   };
 
-  const todayDate = new Date().toLocaleDateString('id-ID', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'short'
-  });
+  const dateLabel = formatDateLabel(selectedDate);
 
   return (
     <div className="flex flex-col w-full space-y-4">
       {/* Calorie Alert Banner if over limit */}
-      <CalorieAlertBanner />
+      {isToday && <CalorieAlertBanner />}
 
-      {/* Status & Quick Reassurance Pill */}
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-1.5 bg-surface-container-low px-3 py-1 rounded-full border border-outline-variant/20">
-          <span className="material-symbols-outlined text-tertiary text-[16px]">cloud_done</span>
-          <span className="font-label-sm text-xs text-on-surface-variant font-medium">
-            Auto-sync aktif
+      {/* Navigasi tanggal: catat/lihat hari sebelumnya */}
+      <div className="flex items-center justify-between gap-2 bg-surface-container-low px-2 py-1.5 rounded-2xl border border-outline-variant/20">
+        <button
+          type="button"
+          aria-label="Hari sebelumnya"
+          onClick={() => setSelectedDate(addDays(selectedDate, -1))}
+          className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container active:scale-90 transition-all"
+        >
+          <span className="material-symbols-outlined text-[20px]">chevron_left</span>
+        </button>
+        <label className="relative flex-1 flex items-center justify-center gap-1.5 cursor-pointer">
+          <span className="material-symbols-outlined text-[16px] text-primary">calendar_today</span>
+          <span className="font-label-sm text-xs font-bold text-on-surface">
+            {isToday ? `Hari ini, ${formatDateLabel(selectedDate, { day: 'numeric', month: 'short' })}` : dateLabel}
           </span>
-        </div>
-        <div className="flex items-center gap-1 text-on-surface-variant">
-          <span className="material-symbols-outlined text-[16px]">calendar_today</span>
-          <span className="font-label-sm text-xs font-semibold">{todayDate}</span>
-        </div>
+          <input
+            type="date"
+            value={selectedDate}
+            max={today}
+            onChange={(e) => e.target.value && setSelectedDate(e.target.value > today ? today : e.target.value)}
+            aria-label="Pilih tanggal"
+            className="absolute inset-0 opacity-0 cursor-pointer w-full"
+          />
+        </label>
+        <button
+          type="button"
+          aria-label="Hari berikutnya"
+          disabled={isToday}
+          onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+          className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none"
+        >
+          <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+        </button>
       </div>
+      {!isToday && (
+        <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-secondary-fixed/50 text-on-secondary-container">
+          <span className="font-label-sm text-[11px] font-semibold">
+            Mengisi catatan untuk tanggal sebelumnya
+          </span>
+          <button
+            type="button"
+            onClick={() => setSelectedDate(today)}
+            className="font-label-sm text-[11px] font-bold text-primary hover:underline"
+          >
+            Kembali ke hari ini
+          </button>
+        </div>
+      )}
 
       {/* Header & Ringkasan Kalori Card */}
       <section className="bg-surface-container-lowest rounded-2xl p-4 shadow-[0_4px_20px_-2px_rgba(244,63,94,0.06)] border border-outline-variant/30 flex flex-col gap-3">
@@ -199,34 +244,6 @@ export default function LogMakanScreen() {
         </div>
       </section>
 
-      {/* Kalori Alert System Guide (Collapsible Details) */}
-      <section className="bg-surface-container-low rounded-2xl p-3.5 shadow-sm border border-outline-variant/20">
-        <div className="flex items-center justify-between mb-2">
-          <span className="font-label-sm text-xs font-bold text-on-surface flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-primary text-[18px]">info</span>
-            Panduan Kalori Alert 'Sehat Yuk!'
-          </span>
-          <span className="font-label-sm text-[11px] text-on-surface-variant font-medium">Otomatis</span>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <div className="bg-surface-container-lowest p-2 rounded-xl flex flex-col items-center text-center shadow-xs">
-            <div className="w-2.5 h-2.5 rounded-full bg-tertiary mb-1" />
-            <span className="font-label-sm text-xs font-bold text-tertiary">0 - 80%</span>
-            <span className="font-label-sm text-[10px] text-on-surface-variant">Aman & Terjaga</span>
-          </div>
-          <div className="bg-surface-container-lowest p-2 rounded-xl flex flex-col items-center text-center shadow-xs">
-            <div className="w-2.5 h-2.5 rounded-full bg-secondary mb-1 animate-pulse" />
-            <span className="font-label-sm text-xs font-bold text-secondary">80 - 95%</span>
-            <span className="font-label-sm text-[10px] text-on-surface-variant">Hati-hati</span>
-          </div>
-          <div className="bg-surface-container-lowest p-2 rounded-xl flex flex-col items-center text-center shadow-xs">
-            <div className="w-2.5 h-2.5 rounded-full bg-error mb-1" />
-            <span className="font-label-sm text-xs font-bold text-error">&gt; 100%</span>
-            <span className="font-label-sm text-[10px] text-on-surface-variant">Over Limit</span>
-          </div>
-        </div>
-      </section>
-
       {/* Form Input Makan Baru */}
       <section className="bg-surface-container-lowest rounded-2xl p-4 shadow-[0_4px_20px_-2px_rgba(244,63,94,0.06)] border border-outline-variant/30 flex flex-col gap-3.5">
         <div className="flex items-center justify-between">
@@ -236,15 +253,6 @@ export default function LogMakanScreen() {
               Catat Makanan Baru
             </h3>
           </div>
-          <span
-            onClick={() => {
-              setFoodName('Ayam Ungkep + Nasi Merah 1 centong');
-              setCaloriesInput('320');
-            }}
-            className="font-label-sm text-xs text-primary font-bold cursor-pointer flex items-center gap-1 hover:underline"
-          >
-            <span className="material-symbols-outlined text-[16px]">menu_book</span> Rekomendasi
-          </span>
         </div>
 
         {/* Meal Timing Selector (Tabs) */}
@@ -297,6 +305,8 @@ export default function LogMakanScreen() {
               <input
                 className="w-full bg-surface-container-low rounded-xl px-3.5 py-2 font-headline-sm text-base font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 pr-12 border border-outline-variant/20"
                 type="number"
+                min="0"
+                placeholder="0"
                 value={caloriesInput}
                 onChange={(e) => setCaloriesInput(e.target.value)}
               />
@@ -374,7 +384,7 @@ export default function LogMakanScreen() {
           {saveStatus === 'saving' ? (
             <>
               <span className="material-symbols-outlined text-[18px] animate-spin">sync</span>
-              <span>Menyimpan Offline...</span>
+              <span>Menyimpan...</span>
             </>
           ) : saveStatus === 'saved' ? (
             <>
@@ -390,22 +400,22 @@ export default function LogMakanScreen() {
         </button>
       </section>
 
-      {/* Riwayat Makanan Hari Ini Header */}
+      {/* Riwayat Makan Header */}
       <div className="flex items-center justify-between pt-1 px-1">
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-secondary text-[20px]">history_edu</span>
           <h3 className="font-headline-sm text-base text-on-surface font-bold">
-            Riwayat Makan Hari Ini
+            {isToday ? 'Riwayat Makan Hari Ini' : 'Riwayat Makan'}
           </h3>
         </div>
         <span className="font-label-sm text-xs bg-surface-container px-2.5 py-0.5 rounded-full text-on-surface-variant font-medium">
-          {data.meals.length} Sesi Tercatat
+          {selectedMeals.length} Sesi Tercatat
         </span>
       </div>
 
       {/* Riwayat Food List Cards */}
       <div className="flex flex-col space-y-2.5">
-        {data.meals.map((meal) => (
+        {selectedMeals.map((meal) => (
           <article
             key={meal.id}
             className="bg-surface-container-lowest rounded-2xl p-3.5 shadow-sm border border-outline-variant/30 flex items-start gap-3"
@@ -421,9 +431,11 @@ export default function LogMakanScreen() {
                   <span className="font-label-md text-xs font-bold text-on-surface truncate">
                     {meal.timeCategory}
                   </span>
-                  <span className="font-label-sm text-[11px] text-on-surface-variant font-normal">
-                    {meal.time}
-                  </span>
+                  {meal.time && (
+                    <span className="font-label-sm text-[11px] text-on-surface-variant font-normal">
+                      {meal.time}
+                    </span>
+                  )}
                 </div>
                 <span className="font-label-md text-xs font-bold text-primary flex-shrink-0">
                   {meal.calories} kkal
@@ -457,14 +469,14 @@ export default function LogMakanScreen() {
           </article>
         ))}
 
-        {data.meals.length === 0 && (
+        {selectedMeals.length === 0 && (
           <div className="bg-surface-container-lowest rounded-2xl p-6 text-center text-on-surface-variant shadow-sm border border-outline-variant/30">
             <span className="material-symbols-outlined text-[36px] text-outline-variant mb-2">
               lunch_dining
             </span>
             <p className="font-label-md text-sm font-bold text-on-surface">Belum ada makanan dicatat</p>
             <p className="font-body-sm text-xs mt-1 text-on-surface-variant">
-              Gunakan formulir di atas untuk mencatat hidangan sahur, takjil, atau makan malam Bunda.
+              Gunakan formulir di atas untuk mencatat makanan {isToday ? 'Bunda' : 'pada tanggal ini'}.
             </p>
           </div>
         )}
@@ -553,18 +565,6 @@ export default function LogMakanScreen() {
           </div>
         </div>
       )}
-
-      {/* Offline Status & Persistence Reassurance Card */}
-      <footer className="bg-surface-container-low rounded-2xl p-3.5 flex items-center gap-3 border border-outline-variant/20">
-        <div className="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center flex-shrink-0 text-on-surface-variant">
-          <span className="material-symbols-outlined text-[18px]">save_as</span>
-        </div>
-        <div className="flex-1">
-          <p className="font-label-sm text-xs text-on-surface-variant leading-tight">
-            Data tersimpan aman di HP & otomatis tersinkron ke cloud saat Bunda terhubung ke internet.
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }

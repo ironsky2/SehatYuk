@@ -1,21 +1,19 @@
 import React, { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
-import confetti from 'canvas-confetti';
+import { localDateStr, startOfWeekStr, addDays, parseDateStr } from '../utils/dateUtils';
 
 export default function ProgressScreen() {
   const {
     data,
+    today,
     authUser,
     handleGoogleSignIn,
     handleSignOut,
     clearAllData,
-    resetOnboarding,
-    isSupabaseConfigured,
     consumeMie,
     resetMieTracker,
     addWeightLog,
     addExercise,
-    resetExerciseWeek,
     updateProfile,
     toggleNotification,
     showNotification,
@@ -26,28 +24,64 @@ export default function ProgressScreen() {
   const fileInputRef = useRef(null);
 
   const [weightModalOpen, setWeightModalOpen] = useState(false);
-  const [newWeight, setNewWeight] = useState(data.profile.currentWeight || '65.0');
-  const [newWaist, setNewWaist] = useState(data.profile.waistCircumference || '84');
+  const [newWeight, setNewWeight] = useState('');
+  const [newWaist, setNewWaist] = useState('');
+  const [weightDate, setWeightDate] = useState(today);
 
   const [exerciseModalOpen, setExerciseModalOpen] = useState(false);
   const [exName, setExName] = useState('Brisk Walking');
   const [exDuration, setExDuration] = useState('25');
   const [exIntensity, setExIntensity] = useState('Sedang');
+  const [exDate, setExDate] = useState(today);
 
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
-  const [editCalorieTarget, setEditCalorieTarget] = useState(data.profile.dailyCalorieTarget || 1300);
-  const [editIfStart, setEditIfStart] = useState(data.profile.ifStart || '11:00');
-  const [editIfEnd, setEditIfEnd] = useState(data.profile.ifEnd || '19:00');
-  const [isNursing, setIsNursing] = useState(data.profile.isNursing);
+  const [editName, setEditName] = useState('');
+  const [editAge, setEditAge] = useState('');
+  const [editHeight, setEditHeight] = useState('');
+  const [editStartWeight, setEditStartWeight] = useState('');
+  const [editCurrentWeight, setEditCurrentWeight] = useState('');
+  const [editTargetWeight, setEditTargetWeight] = useState('');
+  const [editCalorieTarget, setEditCalorieTarget] = useState('');
+  const [editIfStart, setEditIfStart] = useState('11:00');
+  const [editIfEnd, setEditIfEnd] = useState('19:00');
 
-  const startWeight = Number(data.profile.startWeight) || 65.0;
-  const currentWeight = Number(data.profile.currentWeight) || 62.8;
-  const targetWeight = Number(data.profile.targetWeight) || 59.0;
+  const openWeightModal = () => {
+    setNewWeight(String(data.profile.currentWeight ?? ''));
+    setNewWaist(String(data.profile.waistCircumference ?? ''));
+    setWeightDate(today);
+    setWeightModalOpen(true);
+  };
+
+  const openExerciseModal = () => {
+    setExDate(today);
+    setExerciseModalOpen(true);
+  };
+
+  const openSettingsModal = () => {
+    const p = data.profile;
+    setEditName(p.name || '');
+    setEditAge(String(p.age ?? ''));
+    setEditHeight(String(p.height ?? ''));
+    setEditStartWeight(String(p.startWeight ?? ''));
+    setEditCurrentWeight(String(p.currentWeight ?? ''));
+    setEditTargetWeight(String(p.targetWeight ?? ''));
+    setEditCalorieTarget(String(p.dailyCalorieTarget ?? 1300));
+    setEditIfStart(p.ifStart || '11:00');
+    setEditIfEnd(p.ifEnd || '19:00');
+    setSettingsModalOpen(true);
+  };
+
+  const startWeight = Number(data.profile.startWeight) || 0;
+  const currentWeight = Number(data.profile.currentWeight) || startWeight;
+  const targetWeight = Number(data.profile.targetWeight) || currentWeight;
   const lostWeight = Math.max(0, startWeight - currentWeight).toFixed(1);
   const remainingWeight = Math.max(0, currentWeight - targetWeight).toFixed(1);
 
-  const monthlyGoal = 3.0;
-  const monthlyProgressPercent = Math.min(Math.round((Number(lostWeight) / monthlyGoal) * 100), 100);
+  // Progres menuju target total (awal -> target)
+  const totalToLose = startWeight - targetWeight;
+  const monthlyProgressPercent = totalToLose > 0
+    ? Math.max(0, Math.min(Math.round(((startWeight - currentWeight) / totalToLose) * 100), 100))
+    : 0;
 
   // Dynamic Chart Math for Weight Logs
   const logs = data.weightLogs && data.weightLogs.length > 0 ? data.weightLogs : [
@@ -55,6 +89,7 @@ export default function ProgressScreen() {
   ];
 
   const weights = logs.map((l) => Number(l.weight) || currentWeight);
+  const trendDiff = weights.length > 1 ? weights[weights.length - 1] - weights[0] : 0;
   const minW = Math.min(...weights, targetWeight) - 0.5;
   const maxW = Math.max(...weights, startWeight) + 0.5;
   const rangeW = maxW - minW || 1;
@@ -79,6 +114,17 @@ export default function ProgressScreen() {
   const currentWaist = data.profile.waistCircumference || 84;
   const waistDiff = (currentWaist - initialWaist).toFixed(1);
 
+  // Hari olahraga pada minggu berjalan (Senin-Jumat), berdasarkan tanggal sebenarnya
+  const weekStart = startOfWeekStr(parseDateStr(today));
+  const weekDots = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum'].map((label, i) => {
+    const dateStr = addDays(weekStart, i);
+    return {
+      label,
+      done: (data.exercises || []).some((e) => e.date === dateStr),
+      future: dateStr > today
+    };
+  });
+
   const handleConsumeMieClick = () => {
     if (data.mieTracker.quota <= 0) {
       alert('⛔ Jatah mie periode ini sudah habis! Tahan dulu ya Bunda 💪 Jaga defisit kalori & sodium tubuh tetap stabil.');
@@ -92,9 +138,15 @@ export default function ProgressScreen() {
 
   const handleWeightSubmit = (e) => {
     e.preventDefault();
-    addWeightLog(newWeight, newWaist);
+    const w = parseFloat(newWeight);
+    if (!(w >= 20 && w <= 300)) {
+      alert('Masukkan berat badan yang valid (20-300 kg).');
+      return;
+    }
+    const ok = addWeightLog(newWeight, newWaist, weightDate > today ? today : weightDate);
+    if (!ok) return;
     setWeightModalOpen(false);
-    showNotification('Timbangan Dicatat ⚖️', `Berat badan ${newWeight} kg & lingkar perut ${newWaist} cm tersimpan.`);
+    showNotification('Berat Badan Dicatat ⚖️', `Berat badan ${w} kg tersimpan.`);
   };
 
   const handleExerciseSubmit = (e) => {
@@ -106,7 +158,8 @@ export default function ProgressScreen() {
       type: exName,
       duration: durationNum,
       intensity: exIntensity,
-      caloriesBurned: calBurn
+      caloriesBurned: calBurn,
+      date: exDate > today ? today : exDate
     });
     setExerciseModalOpen(false);
     showNotification('Olahraga Dicatat 🏃', `Latihan ${exName} selama ${durationNum} menit (-${calBurn} kkal) tersimpan.`);
@@ -114,14 +167,40 @@ export default function ProgressScreen() {
 
   const handleSaveSettings = (e) => {
     e.preventDefault();
-    updateProfile({
-      dailyCalorieTarget: Number(editCalorieTarget),
+    const age = Number(editAge);
+    const height = Number(editHeight);
+    const startW = Number(editStartWeight);
+    const currentW = Number(editCurrentWeight);
+    const targetW = Number(editTargetWeight);
+    const kcal = Number(editCalorieTarget);
+
+    if (!editName.trim()) return alert('Nama tidak boleh kosong.');
+    if (!(age >= 10 && age <= 100)) return alert('Usia harus antara 10-100 tahun.');
+    if (!(height >= 100 && height <= 250)) return alert('Tinggi badan harus antara 100-250 cm.');
+    if (![startW, currentW, targetW].every((v) => v >= 20 && v <= 300)) {
+      return alert('Berat badan harus antara 20-300 kg.');
+    }
+    if (!(kcal >= 800 && kcal <= 5000)) return alert('Target kalori harus antara 800-5000 kkal.');
+
+    const fields = {
+      age,
+      height,
+      startWeight: startW,
+      targetWeight: targetW,
+      dailyCalorieTarget: kcal,
       ifStart: editIfStart,
-      ifEnd: editIfEnd,
-      isNursing
-    });
+      ifEnd: editIfEnd
+    };
+    if (editName.trim() !== data.profile.name) fields.name = editName.trim();
+    updateProfile(fields);
+
+    // Perubahan berat badan sekarang ikut tercatat di grafik (hari ini)
+    if (currentW !== Number(data.profile.currentWeight)) {
+      addWeightLog(currentW, data.profile.waistCircumference, today);
+    }
+
     setSettingsModalOpen(false);
-    showNotification('Pengaturan Disimpan ⚙️', 'Target kalori dan eating window berhasil diperbarui.');
+    showNotification('Profil Disimpan ⚙️', 'Data profil dan target berhasil diperbarui.');
   };
 
   const handleFileImport = (e) => {
@@ -168,7 +247,11 @@ export default function ProgressScreen() {
             <span className="material-symbols-outlined text-[16px]">spa</span>
           </div>
           <p className="font-body-sm text-xs text-on-surface font-medium leading-tight">
-            Hebat Bunda! Tinggal <span className="text-primary font-bold">{remainingWeight} kg lagi</span> menuju target idealmu 🌸
+            {Number(remainingWeight) > 0 ? (
+              <>Tinggal <span className="text-primary font-bold">{remainingWeight} kg lagi</span> menuju target idealmu 🌸</>
+            ) : (
+              <>Target berat badan tercapai. Pertahankan ya Bunda 🌸</>
+            )}
           </p>
         </div>
       </div>
@@ -184,9 +267,11 @@ export default function ProgressScreen() {
               Target Berat Badan
             </span>
           </div>
-          <span className="font-label-sm text-xs px-2.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-bold shadow-xs">
-            Turun {lostWeight} kg 🎉
-          </span>
+          {Number(lostWeight) > 0 && (
+            <span className="font-label-sm text-xs px-2.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-bold shadow-xs">
+              Turun {lostWeight} kg
+            </span>
+          )}
         </div>
 
         {/* Stat Milestones Grid */}
@@ -217,8 +302,8 @@ export default function ProgressScreen() {
         {/* Monthly Progress Bar */}
         <div className="flex flex-col gap-1.5">
           <div className="flex justify-between items-center font-label-sm text-xs">
-            <span className="text-on-surface-variant font-medium">Target Bulanan (3.0 kg)</span>
-            <span className="text-primary font-bold">{monthlyProgressPercent}% Terpenuhi</span>
+            <span className="text-on-surface-variant font-medium">Progres Menuju Target</span>
+            <span className="text-primary font-bold">{monthlyProgressPercent}%</span>
           </div>
           <div className="w-full h-3 rounded-full bg-surface-container overflow-hidden p-0.5">
             <div
@@ -227,8 +312,7 @@ export default function ProgressScreen() {
             />
           </div>
           <div className="flex justify-between font-label-sm text-[11px] text-outline">
-            <span>Sisa target total: {remainingWeight} kg lagi</span>
-            <span>Est. 4 minggu</span>
+            <span>Sisa menuju target: {remainingWeight} kg</span>
           </div>
         </div>
 
@@ -236,12 +320,20 @@ export default function ProgressScreen() {
         <div className="flex flex-col gap-1.5 pt-1 border-t border-surface-container-low">
           <div className="flex justify-between items-center">
             <span className="font-label-md text-xs text-on-surface font-bold">
-              Tren Penurunan ({logs.length} Catatan)
+              Tren Berat Badan ({logs.length} Catatan)
             </span>
-            <span className="font-label-sm text-xs text-tertiary flex items-center gap-0.5 font-semibold">
-              <span className="material-symbols-outlined text-[14px]">trending_down</span>
-              Konsisten
-            </span>
+            {logs.length > 1 && (
+              <span
+                className={`font-label-sm text-xs flex items-center gap-0.5 font-semibold ${
+                  trendDiff <= 0 ? 'text-tertiary' : 'text-secondary'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[14px]">
+                  {trendDiff <= 0 ? 'trending_down' : 'trending_up'}
+                </span>
+                {trendDiff > 0 ? '+' : ''}{trendDiff.toFixed(1)} kg
+              </span>
+            )}
           </div>
           <div className="h-28 w-full bg-surface-container-low rounded-xl p-2.5 flex flex-col justify-end relative overflow-hidden border border-outline-variant/20">
             <svg className="w-full h-20 overflow-visible" preserveAspectRatio="none" viewBox="0 0 300 70">
@@ -302,18 +394,18 @@ export default function ProgressScreen() {
             </span>
             <span className="font-label-sm text-xs text-on-surface-variant"> cm</span>
             <span className="block font-label-sm text-xs text-tertiary font-bold">
-              {waistDiff <= 0 ? `${waistDiff} cm ✨` : `+${waistDiff} cm`}
+              {waistDiff <= 0 ? `${waistDiff} cm` : `+${waistDiff} cm`}
             </span>
           </div>
         </div>
 
         {/* Quick Weight Logging CTA Button */}
         <button
-          onClick={() => setWeightModalOpen(true)}
+          onClick={openWeightModal}
           className="w-full py-3 px-4 rounded-full bg-primary text-on-primary font-label-lg text-xs font-bold flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(185,5,56,0.25)] active:scale-[0.98] transition-all"
         >
           <span className="material-symbols-outlined text-[18px]">scale</span>
-          Catat Timbang Hari Senin Ini
+          Catat Berat Badan
         </button>
       </div>
 
@@ -411,64 +503,32 @@ export default function ProgressScreen() {
           </span>
         </div>
 
-        {/* Active Routine Spotlight */}
-        <div className="p-3 rounded-xl bg-surface-container-low flex items-start gap-2.5 border border-outline-variant/20">
-          <div className="w-8 h-8 rounded-full bg-tertiary-container flex items-center justify-center text-on-tertiary flex-shrink-0 mt-0.5">
-            <span className="material-symbols-outlined text-[18px]">directions_walk</span>
-          </div>
-          <div className="flex flex-col min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="font-label-md text-xs text-on-surface font-bold truncate">
-                Brisk Walking & Power Walk
-              </span>
-              <span className="font-label-sm text-[10px] px-1.5 py-0.2 rounded bg-tertiary-fixed text-on-tertiary-fixed font-semibold">
-                Rutin
-              </span>
-            </div>
-            <p className="font-body-sm text-xs text-on-surface-variant mt-0.5 leading-relaxed">
-              Target 25-30 menit per sesi. Menjaga metabolisme aktif dan mempercepat defisit kalori harian.
-            </p>
-          </div>
-        </div>
-
         {/* 5-Day Target Dots */}
         <div className="grid grid-cols-5 gap-1.5 pt-0.5">
-          {['Sen', 'Sel', 'Rab', 'Kam', 'Jum'].map((day, i) => {
-            const isDone = i < data.exerciseDaysCompleted;
-            return (
-              <div
-                key={day}
-                className={`flex flex-col items-center gap-1 p-2 rounded-xl text-xs ${
-                  isDone
-                    ? 'bg-tertiary-fixed text-on-tertiary-fixed font-bold shadow-xs'
-                    : 'bg-surface-container text-on-surface-variant border border-outline-variant/20'
-                }`}
-              >
-                <span>{day}</span>
-                <span className="material-symbols-outlined text-[15px]">
-                  {isDone ? 'check' : 'hourglass_empty'}
-                </span>
-              </div>
-            );
-          })}
+          {weekDots.map(({ label, done, future }) => (
+            <div
+              key={label}
+              className={`flex flex-col items-center gap-1 p-2 rounded-xl text-xs ${
+                done
+                  ? 'bg-tertiary-fixed text-on-tertiary-fixed font-bold shadow-xs'
+                  : 'bg-surface-container text-on-surface-variant border border-outline-variant/20'
+              } ${future ? 'opacity-60' : ''}`}
+            >
+              <span>{label}</span>
+              <span className="material-symbols-outlined text-[15px]">
+                {done ? 'check' : 'hourglass_empty'}
+              </span>
+            </div>
+          ))}
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setExerciseModalOpen(true)}
-            className="flex-1 py-2.5 px-4 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
-          >
-            <span className="material-symbols-outlined text-[18px]">add_circle</span>
-            Catat Olahraga
-          </button>
-          <button
-            onClick={resetExerciseWeek}
-            title="Reset ke Minggu Baru"
-            className="p-2.5 rounded-full bg-surface-container text-on-surface-variant hover:text-primary active:scale-95 transition-all"
-          >
-            <span className="material-symbols-outlined text-[18px]">restart_alt</span>
-          </button>
-        </div>
+        <button
+          onClick={openExerciseModal}
+          className="w-full py-2.5 px-4 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+        >
+          <span className="material-symbols-outlined text-[18px]">add_circle</span>
+          Catat Olahraga
+        </button>
       </div>
 
       {/* F9: Pengaturan Notifikasi & Reminder */}
@@ -480,14 +540,11 @@ export default function ProgressScreen() {
               Notifikasi & Pengingat
             </h3>
           </div>
-          <span className="font-label-sm text-xs text-tertiary font-bold bg-tertiary-fixed/30 px-2 py-0.5 rounded-full">
-            Push Aktif
-          </span>
         </div>
         <div className="flex flex-col gap-2 pt-1 text-sm">
           <div className="flex items-center justify-between p-2.5 rounded-xl bg-surface-container-low border border-outline-variant/20">
             <div>
-              <p className="font-bold text-xs text-on-surface">Jadwal IF (11:00 & 19:00)</p>
+              <p className="font-bold text-xs text-on-surface">Jadwal IF ({data.profile.ifStart} & {data.profile.ifEnd})</p>
               <p className="text-[11px] text-on-surface-variant">Eating window buka & tutup</p>
             </div>
             <input
@@ -523,7 +580,7 @@ export default function ProgressScreen() {
           </div>
           <div className="flex items-center justify-between p-2.5 rounded-xl bg-surface-container-low border border-outline-variant/20">
             <div>
-              <p className="font-bold text-xs text-on-surface">Timbang BB Hari Senin</p>
+              <p className="font-bold text-xs text-on-surface">Timbang Berat Badan Hari Senin</p>
               <p className="text-[11px] text-on-surface-variant">Setiap Senin jam 06:30 pagi</p>
             </div>
             <input
@@ -548,7 +605,7 @@ export default function ProgressScreen() {
             </span>
           </div>
           <button
-            onClick={() => setSettingsModalOpen(true)}
+            onClick={openSettingsModal}
             className="font-label-sm text-xs text-primary font-bold hover:underline"
           >
             Ubah
@@ -569,7 +626,7 @@ export default function ProgressScreen() {
               {data.profile.name}
             </h4>
             <span className="font-body-sm text-xs text-on-surface-variant">
-              {data.profile.age} tahun • {data.profile.isNursing ? 'Ibu Menyusui (ASI)' : 'Umum (Tidak Menyusui)'} • {data.profile.height} cm
+              {data.profile.age} tahun • {data.profile.height} cm • {currentWeight.toFixed(1)} kg
             </span>
           </div>
         </div>
@@ -589,14 +646,14 @@ export default function ProgressScreen() {
           </div>
           <div className="p-3 rounded-xl bg-surface-container-low flex flex-col justify-between border border-outline-variant/20">
             <span className="font-label-sm text-xs text-on-surface-variant font-medium">
-              Formula Penyesuaian
+              Kebutuhan Energi
             </span>
             <div className="mt-1">
               <span className="font-label-md text-xs text-on-surface font-bold">
                 BMR {data.profile.bmr} kkal
               </span>
               <span className="block font-label-sm text-[11px] text-tertiary font-semibold">
-                -200 kkal defisit
+                {Math.max(0, Number(data.profile.tdee) - Number(data.profile.dailyCalorieTarget))} kkal defisit/hari
               </span>
             </div>
           </div>
@@ -625,12 +682,9 @@ export default function ProgressScreen() {
                 />
               </svg>
               <span className="font-label-sm text-xs font-bold text-on-surface">
-                Autentikasi Google
+                Akun Google
               </span>
             </div>
-            <span className="font-label-sm text-[10px] px-2 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-bold">
-              RLS Aktif
-            </span>
           </div>
 
           {authUser ? (
@@ -640,7 +694,7 @@ export default function ProgressScreen() {
                   {authUser.user_metadata?.full_name || authUser.email}
                 </p>
                 <p className="text-[10px] text-tertiary font-semibold truncate">
-                  ● Terhubung & Tersinkron Cloud
+                  ● Terhubung
                 </p>
               </div>
               <button
@@ -653,7 +707,7 @@ export default function ProgressScreen() {
           ) : (
             <div className="flex flex-col gap-2">
               <p className="text-[11px] text-on-surface-variant leading-relaxed">
-                Masuk dengan akun Google untuk mencadangkan data secara aman di Supabase dengan proteksi Row Level Security (RLS).
+                Masuk dengan akun Google untuk mengamankan akun Anda.
               </p>
               <button
                 onClick={handleGoogleSignIn}
@@ -687,7 +741,7 @@ export default function ProgressScreen() {
         <div className="p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 flex flex-col gap-2">
           <span className="font-label-sm text-xs font-bold text-on-surface flex items-center gap-1">
             <span className="material-symbols-outlined text-[16px] text-primary">backup</span>
-            Cadangan & Pemulihan Data (Offline-Proof)
+            Cadangan & Pemulihan Data
           </span>
           <p className="text-[11px] text-on-surface-variant">
             Unduh data Anda ke file JSON atau pulihkan saat ganti HP baru.
@@ -716,22 +770,13 @@ export default function ProgressScreen() {
             />
           </div>
 
-          {/* Reset / Bersihkan Data Dummy Button */}
+          {/* Hapus semua data */}
           <button
             onClick={clearAllData}
             className="w-full mt-1.5 py-2 px-3 rounded-xl border border-error/30 hover:bg-error-container/30 text-error font-label-sm text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
           >
             <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
-            Hapus Semua Data & Mulai Baru
-          </button>
-
-          {/* Buka Ulang Slide Pengenalan Aplikasi */}
-          <button
-            onClick={resetOnboarding}
-            className="w-full py-2 px-3 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface-variant font-label-sm text-xs font-semibold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
-          >
-            <span className="material-symbols-outlined text-[16px]">slideshow</span>
-            Lihat Ulang Slide Pengenalan Aplikasi
+            Hapus Semua Data
           </button>
         </div>
       </div>
@@ -741,7 +786,7 @@ export default function ProgressScreen() {
         <div className="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-surface-container-lowest rounded-2xl p-5 max-w-sm w-full shadow-2xl flex flex-col gap-3 border border-outline-variant/30">
             <div className="flex items-center justify-between border-b pb-2">
-              <h3 className="font-headline-sm font-bold text-base text-on-surface">Catat Timbangan Hari Senin</h3>
+              <h3 className="font-headline-sm font-bold text-base text-on-surface">Catat Berat Badan</h3>
               <button onClick={() => setWeightModalOpen(false)}>
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
@@ -749,11 +794,31 @@ export default function ProgressScreen() {
             <form onSubmit={handleWeightSubmit} className="flex flex-col gap-3">
               <div>
                 <label className="text-xs font-semibold text-on-surface-variant block mb-1">
+                  Tanggal
+                </label>
+                <input
+                  type="date"
+                  required
+                  max={today}
+                  value={weightDate}
+                  onChange={(e) => setWeightDate(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 text-xs font-medium border border-outline-variant/20"
+                />
+                {weightDate !== today && (
+                  <p className="text-[11px] text-on-surface-variant mt-1">
+                    Catatan di tanggal yang sama akan diganti.
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-on-surface-variant block mb-1">
                   Berat Badan (kg)
                 </label>
                 <input
                   type="number"
                   step="0.1"
+                  min="20"
+                  max="300"
                   required
                   value={newWeight}
                   onChange={(e) => setNewWeight(e.target.value)}
@@ -795,6 +860,19 @@ export default function ProgressScreen() {
               </button>
             </div>
             <form onSubmit={handleExerciseSubmit} className="flex flex-col gap-3">
+              <div>
+                <label className="text-xs font-semibold text-on-surface-variant block mb-1">
+                  Tanggal
+                </label>
+                <input
+                  type="date"
+                  required
+                  max={today}
+                  value={exDate}
+                  onChange={(e) => setExDate(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface border border-outline-variant/20 text-xs font-medium"
+                />
+              </div>
               <div>
                 <label className="text-xs font-semibold text-on-surface-variant block mb-1">
                   Jenis Olahraga
@@ -863,7 +941,86 @@ export default function ProgressScreen() {
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
             </div>
-            <form onSubmit={handleSaveSettings} className="flex flex-col gap-3 text-xs">
+            <form onSubmit={handleSaveSettings} className="flex flex-col gap-3 text-xs max-h-[70vh] overflow-y-auto pr-0.5">
+              <div>
+                <label className="font-semibold block mb-1">Nama:</label>
+                <input
+                  type="text"
+                  required
+                  maxLength={40}
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface border border-outline-variant/20"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-semibold block mb-1">Usia (tahun):</label>
+                  <input
+                    type="number"
+                    required
+                    min="10"
+                    max="100"
+                    value={editAge}
+                    onChange={(e) => setEditAge(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface border border-outline-variant/20"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold block mb-1">Tinggi Badan (cm):</label>
+                  <input
+                    type="number"
+                    required
+                    min="100"
+                    max="250"
+                    step="0.5"
+                    value={editHeight}
+                    onChange={(e) => setEditHeight(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface border border-outline-variant/20"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="font-semibold block mb-1">BB Awal (kg):</label>
+                  <input
+                    type="number"
+                    required
+                    min="20"
+                    max="300"
+                    step="0.1"
+                    value={editStartWeight}
+                    onChange={(e) => setEditStartWeight(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface border border-outline-variant/20"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold block mb-1">BB Sekarang:</label>
+                  <input
+                    type="number"
+                    required
+                    min="20"
+                    max="300"
+                    step="0.1"
+                    value={editCurrentWeight}
+                    onChange={(e) => setEditCurrentWeight(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface border border-outline-variant/20"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold block mb-1">BB Target:</label>
+                  <input
+                    type="number"
+                    required
+                    min="20"
+                    max="300"
+                    step="0.1"
+                    value={editTargetWeight}
+                    onChange={(e) => setEditTargetWeight(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface border border-outline-variant/20"
+                  />
+                </div>
+              </div>
               <div>
                 <label className="font-semibold block mb-1">Target Kalori Harian (kkal):</label>
                 <input
@@ -893,18 +1050,6 @@ export default function ProgressScreen() {
                     className="w-full p-2 rounded-xl bg-surface-container-low text-on-surface border border-outline-variant/20"
                   />
                 </div>
-              </div>
-              <div className="flex items-center gap-2 p-2 bg-surface-container-low rounded-xl border border-outline-variant/20">
-                <input
-                  type="checkbox"
-                  id="nursingCheck"
-                  checked={isNursing}
-                  onChange={(e) => setIsNursing(e.target.checked)}
-                  className="accent-primary w-4 h-4 cursor-pointer"
-                />
-                <label htmlFor="nursingCheck" className="font-semibold cursor-pointer">
-                  Status Ibu Menyusui (ASI)
-                </label>
               </div>
               <button
                 type="submit"

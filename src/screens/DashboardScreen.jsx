@@ -8,11 +8,15 @@ export default function DashboardScreen() {
   const {
     data,
     totalCalories,
+    todayMeals,
+    today,
     calorieTarget,
     addWaterGlass,
     setActiveTab,
     setQuickMealModalOpen
   } = useApp();
+
+  const todayExercise = (data.exercises || []).find((e) => e.date === today);
 
   const [prayerTimes, setPrayerTimes] = useState(() => {
     const lat = data.profile?.coords?.lat ?? -6.2615;
@@ -20,7 +24,7 @@ export default function DashboardScreen() {
     return getPrayerTimesForDate(new Date(), lat, lng);
   });
 
-  const [countdownText, setCountdownText] = useState('02:18:40');
+  const [countdownText, setCountdownText] = useState('--:--:--');
   const [waterButtonFeedback, setWaterButtonFeedback] = useState(false);
 
   // Recalculate prayer times if coords change
@@ -272,7 +276,7 @@ export default function DashboardScreen() {
 
         {/* Mini Meal Timeline */}
         <div className="flex flex-col gap-2 pt-1 border-t border-surface-container-low">
-          {data.meals.slice(0, 3).map((meal) => (
+          {todayMeals.slice(0, 3).map((meal) => (
             <div
               key={meal.id}
               onClick={() => setActiveTab('makan')}
@@ -296,7 +300,7 @@ export default function DashboardScreen() {
               </span>
             </div>
           ))}
-          {data.meals.length === 0 && (
+          {todayMeals.length === 0 && (
             <p className="text-center font-body-sm text-xs text-on-surface-variant py-2">
               Belum ada makanan dicatat hari ini.
             </p>
@@ -419,14 +423,14 @@ export default function DashboardScreen() {
             <div className="w-9 h-9 rounded-full bg-tertiary-fixed flex items-center justify-center text-tertiary flex-shrink-0">
               <span className="material-symbols-outlined text-[20px]">directions_walk</span>
             </div>
-            {data.exercises && data.exercises.length > 0 ? (
+            {todayExercise ? (
               <div className="min-w-0">
                 <span className="font-label-sm text-[11px] text-on-surface-variant block truncate">
-                  {data.exercises[0].name}
+                  {todayExercise.name}
                 </span>
                 <p className="font-label-lg text-xs text-on-surface font-bold truncate">
-                  {data.exercises[0].duration} mnt{' '}
-                  <span className="text-tertiary font-normal">(-{data.exercises[0].caloriesBurned} kkal)</span>
+                  {todayExercise.duration} mnt{' '}
+                  <span className="text-tertiary font-normal">(-{todayExercise.caloriesBurned} kkal)</span>
                 </p>
               </div>
             ) : (

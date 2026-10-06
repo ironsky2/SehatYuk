@@ -17,11 +17,6 @@ export default function App() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
 
-  // Show intro slides & authentication screen on first visit
-  if (!hasCompletedOnboarding && !authUser) {
-    return <OnboardingAuthScreen onComplete={completeOnboarding} />;
-  }
-
   // PWA Install prompt listener
   useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {
@@ -44,6 +39,12 @@ export default function App() {
       setDeferredPrompt(null);
     }
   };
+
+  // Show intro slides & authentication screen on first visit
+  // (harus setelah semua hook agar urutan hook konsisten di setiap render)
+  if (!hasCompletedOnboarding && !authUser) {
+    return <OnboardingAuthScreen onComplete={completeOnboarding} />;
+  }
 
   const renderActiveScreen = () => {
     switch (activeTab) {

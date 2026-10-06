@@ -1,9 +1,18 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { getPrayerTimesForDate } from '../utils/prayerTimes';
 
 export default function Header() {
   const { data, isOnline, isSyncing, activeTab, setActiveTab, requestNotificationPermission, showNotification } = useApp();
   const [notifModalOpen, setNotifModalOpen] = useState(false);
+
+  const prayer = getPrayerTimesForDate(
+    new Date(),
+    data.profile?.coords?.lat ?? -6.2615,
+    data.profile?.coords?.lng ?? 106.8106
+  );
+  const ifStart = data.profile?.ifStart || '11:00';
+  const ifEnd = data.profile?.ifEnd || '19:00';
 
   const getScreenTitle = () => {
     switch (activeTab) {
@@ -131,7 +140,7 @@ export default function Header() {
                 <div className="flex-1">
                   <div className="flex justify-between items-center">
                     <strong className="text-on-surface">Sahur Puasa Sunnah</strong>
-                    <span className="text-[10px] text-outline font-medium">03:45 WIB</span>
+                    <span className="text-[10px] text-outline font-medium">{prayer.imsak} WIB</span>
                   </div>
                   <p className="text-on-surface-variant mt-0.5">"Sahur! Bangun sekarang ya Bunda 🌙 Minum 2 gelas air hangat."</p>
                 </div>
@@ -142,7 +151,7 @@ export default function Header() {
                 <div className="flex-1">
                   <div className="flex justify-between items-center">
                     <strong className="text-on-surface">Jendela Makan (IF) Buka</strong>
-                    <span className="text-[10px] text-outline font-medium">11:00 WIB</span>
+                    <span className="text-[10px] text-outline font-medium">{ifStart} WIB</span>
                   </div>
                   <p className="text-on-surface-variant mt-0.5">"Eating window dimulai! Boleh makan bergizi sekarang 🍽️"</p>
                 </div>
@@ -153,7 +162,7 @@ export default function Header() {
                 <div className="flex-1">
                   <div className="flex justify-between items-center">
                     <strong className="text-on-surface">Waktu Maghrib (Buka Puasa)</strong>
-                    <span className="text-[10px] text-outline font-medium">17:52 WIB</span>
+                    <span className="text-[10px] text-outline font-medium">{prayer.maghrib} WIB</span>
                   </div>
                   <p className="text-on-surface-variant mt-0.5">"Alhamdulillah, waktunya berbuka! Awali dengan 3 butir kurma & air putih 🌸"</p>
                 </div>
@@ -164,7 +173,7 @@ export default function Header() {
                 <div className="flex-1">
                   <div className="flex justify-between items-center">
                     <strong className="text-on-surface">Jendela Makan Tutup</strong>
-                    <span className="text-[10px] text-outline font-medium">19:00 WIB</span>
+                    <span className="text-[10px] text-outline font-medium">{ifEnd} WIB</span>
                   </div>
                   <p className="text-on-surface-variant mt-0.5">"Eating window tutup. Istirahatkan pencernaan sampai esok hari 💪"</p>
                 </div>

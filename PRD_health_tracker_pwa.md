@@ -1,6 +1,6 @@
 # 📋 PRD — Health Tracker PWA "Sehat Yuk!"
-**Product Requirements Document v1.0**
-**Dibuat:** 4 Oktober 2026 | **Status:** Disetujui (Final v1.0)
+**Product Requirements Document v1.1**
+**Dibuat:** 4 Oktober 2026 | **Diperbarui:** 6 Oktober 2026 | **Status:** Disetujui (v1.1 — lihat Bab 10 untuk log progres)
 
 ---
 
@@ -160,9 +160,10 @@ Komponen:
 ### F6 — Grafik Berat Badan & Lingkar Perut 📊
 
 **Input:**
-- Berat badan (kg) — input setiap Senin
-- Lingkar perut (cm) — input setiap Senin
-- Waktu input: setelah menekan tombol di reminder push notif
+- Berat badan (kg) — dianjurkan setiap Senin
+- Lingkar perut (cm) — dianjurkan setiap Senin
+- **Tanggal catatan bisa dipilih (hari ini atau hari sebelumnya)** untuk melengkapi catatan yang terlewat. Satu catatan per tanggal; catatan baru di tanggal yang sama menggantikan yang lama.
+- Berat badan sekarang di profil selalu mengikuti catatan terbaru (berdasarkan tanggal).
 
 **Visualisasi:**
 - Line chart berat badan: minggu 1–4 vs target
@@ -183,7 +184,11 @@ Komponen:
 - Intensitas: Ringan / Sedang / Tinggi
 - Estimasi kalori terbakar (otomatis dari durasi + intensitas)
 - Catatan bebas
+- **Tanggal olahraga bisa dipilih (hari ini atau hari sebelumnya)** agar hari yang terlewat tetap tercatat.
 
+**Tampilan:**
+- Log olahraga hari ini di Dashboard
+- History mingguan: penanda Senin–Jumat berdasarkan tanggal olahraga sebenarnya (otomatis berganti tiap minggu, tanpa reset manual)
 **Tampilan:**
 - Log olahraga hari ini di Dashboard
 - History mingguan: berapa hari berolahraga dari target
@@ -220,11 +225,11 @@ Semua push notification bisa dikustomisasi on/off per kategori:
 
 ### F10 — Profil & Pengaturan ⚙️
 
-**Data Profil:**
-- Nama, foto (dari Google / custom avatar)
+**Data Profil (dapat diubah kapan saja lewat tombol "Ubah"):**
+- Nama, foto (dari Google / custom avatar). Nama yang diubah manual tidak ditimpa lagi oleh nama Google.
 - Status Laktasi: **Tidak Menyusui (Non-Laktasi)** — perhitungan kalori berfokus pada defisit fat loss murni tanpa buffer laktasi.
-- Tinggi badan, berat badan awal (65 kg), target berat (59 kg)
-- Usia (30 tahun) → auto-hitung BMR (~1.380 kkal) & TDEE (~1.650 kkal)
+- **Tinggi badan, berat badan awal, berat badan sekarang, dan berat target — semuanya dapat diedit.** Mengubah berat badan sekarang otomatis menambah catatan pada grafik hari ini.
+- Usia → auto-hitung ulang BMR (Mifflin-St Jeor) & TDEE (BMR × 1,2) setiap kali usia/tinggi/berat berubah
 - HPHT: **23 September 2026** | Selesai Haid: **1 Oktober 2026** (panjang siklus 28 hari)
 - Eating window IF (default 11:00–19:00)
 - Waktu Maghrib kota (untuk buka puasa via GPS offline)
@@ -340,4 +345,57 @@ Semua pertanyaan desain telah diputuskan dan disetujui:
 | **Data Siklus Menstruasi Aktual** | **Mulai 23 Sept — Selesai 1 Okt 2026** | Durasi haid 9 hari, siklus 28 hari, fase otomatis dihitung dinamis (per 5 Okt berada pada hari ke-13, Fase Folikuler akhir). |
 | **Sistem Notifikasi & Bunyi Bel** | **Web Audio API Chime + Service Worker Push** | Notifikasi berbunyi bel alami (*pleasant harmonic chime*) 100% offline dan muncul di luar aplikasi (*system tray / lockscreen* perangkat). |
 | **Cakupan Proyek** | **Pengembangan PWA Berkelanjutan** | Dokumen PRD dan implementasi aplikasi disinkronkan secara konsisten. |
+| **Catatan Hari Sebelumnya (Backfill)** | **Tanggal bisa dipilih untuk makan, olahraga, dan berat badan** | Jika lupa mencatat, user dapat kembali ke tanggal sebelumnya (tidak bisa ke tanggal masa depan). Kalori harian dan alert selalu dihitung per tanggal. |
 
+---
+
+## 10. Log Progres & Changelog
+
+Bagian ini dicatat per tanggal agar progres hari sebelumnya tidak terlewat.
+
+### 6 Oktober 2026 — v1.1 (QA & Penyempurnaan)
+
+**Bug yang ditemukan & diperbaiki:**
+- 🐞 Login Google tidak bisa: pengecekan konfigurasi Supabase terbalik sehingga URL/key asli dianggap placeholder (klien Supabase tidak pernah dibuat).
+- 🐞 Aplikasi crash setelah onboarding/login ("Rendered more hooks"): `useEffect` berada setelah `return` kondisional di `App.jsx`.
+- 🐞 Kalori makan menumpuk selamanya: entri makan tidak punya tanggal, sehingga total "hari ini" tidak pernah reset. Kini setiap entri bertanggal dan dihitung per hari (data lama dimigrasi otomatis).
+- 🐞 Air minum tidak reset harian — kini reset otomatis saat berganti tanggal.
+- 🐞 Tanggal olahraga memakai UTC sehingga catatan dini hari (sahur) masuk ke hari kemarin — kini memakai zona waktu lokal.
+- 🐞 Hitungan hari olahraga hanya counter manual (maks 5, tidak bisa turun) — kini diturunkan dari riwayat olahraga minggu berjalan.
+- 🐞 Toggle "Peringatan Batas Kalori" tidak berpengaruh — kini dihormati.
+- 🐞 Status menyusui selalu dipaksa "tidak" saat dimuat ulang meski diubah — opsi dihapus karena tidak relevan dengan persona.
+- 🐞 Nama yang diubah manual tertimpa nama Google setiap login/refresh — diperbaiki.
+- 🐞 Impor backup bisa membuat aplikasi error bila ada field hilang — data impor kini dinormalisasi.
+- 🐞 Dashboard menampilkan makanan/olahraga dari semua hari — kini hanya hari ini.
+
+**Fitur baru:**
+- ✅ Catat makan, olahraga, dan berat badan untuk **hari sebelumnya** (navigasi tanggal di layar Makan; pemilih tanggal di form olahraga & berat badan).
+- ✅ Edit **berat badan, tinggi badan**, usia, nama, dan target di Profil; BMR/TDEE dihitung ulang otomatis.
+- ✅ Jam pengingat (Imsak, Maghrib, IF buka/tutup) kini dinamis, bukan angka tetap.
+
+**Perapihan tampilan (standar aplikasi komersial):**
+- Dihapus: badge "RLS Aktif"/"Push Aktif", panel panduan kalori, tombol "Rekomendasi" berisi menu contoh, kartu rutinitas statis, tombol reset olahraga manual, tombol "Lihat Ulang Slide Pengenalan", teks "Offline-Proof", dan klaim sinkronisasi cloud yang belum berfungsi.
+- Nama default "Bunda Sarah" diganti "Bunda"; hitungan target bulanan/estimasi tetap diganti progres nyata menuju target.
+
+**Status fitur saat ini:**
+
+| Fitur | Status |
+|---|---|
+| F1–F3 Dashboard, Log Makan, IF Timer | ✅ Berjalan (data per tanggal) |
+| F4 Puasa Senin-Kamis, F5 Fase Hormon | ✅ Berjalan |
+| F6 Grafik Berat Badan | ✅ Berjalan + catat tanggal lampau |
+| F7 Olahraga, F8 Tracker Mie | ✅ Berjalan |
+| F9 Notifikasi | 🟡 Pengingat in-app & uji bunyi berjalan; penjadwalan push di latar belakang belum ada |
+| F10 Profil | ✅ Dapat diedit |
+| F11 Google Login | 🟡 Login berjalan (perlu env Supabase + provider Google aktif); **sinkronisasi data ke cloud belum terhubung** — data masih tersimpan di perangkat (LocalStorage) |
+
+**Belum dikerjakan / langkah berikutnya:**
+- Menghubungkan penyimpanan data ke Supabase (helper sudah ada di `src/services/supabase.js`, belum dipanggil).
+- Penjadwalan push notification di latar belakang (Service Worker).
+- Pencatatan air minum untuk hari sebelumnya.
+
+### 5 Oktober 2026
+- Setup awal PWA, Google Sign-In via Supabase, dan konfigurasi env Supabase (URL & anon key) dilakukan; deploy ke Vercel.
+
+### 4 Oktober 2026
+- PRD v1.0 disetujui dan implementasi MVP dimulai.

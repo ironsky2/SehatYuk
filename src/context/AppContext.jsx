@@ -2,12 +2,13 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { triggerSystemNotification, playNotificationSound } from '../utils/notificationSound';
 import { supabase, isSupabaseConfigured, signInWithGoogle, signOutUser, getCurrentUser } from '../services/supabase';
+import { localDateStr, startOfWeekStr, formatDateLabel } from '../utils/dateUtils';
 
 const STORAGE_KEY = 'sehat_yuk_app_data_v3';
 
 const defaultState = {
   profile: {
-    name: 'Bunda Sarah',
+    name: 'Bunda',
     avatar: '/avatar.png',
     age: 30,
     isNursing: false, // Tidak menyusui sesuai update PRD
@@ -30,8 +31,9 @@ const defaultState = {
   },
   meals: [], // Bersih tanpa data dummy
   waterGlasses: 0, // Mulai dari 0 gelas
+  waterDate: localDateStr(), // Tanggal catatan air minum (reset otomatis tiap hari)
   exercises: [], // Bersih tanpa data dummy
-  exerciseDaysCompleted: 0, // Mulai dari 0
+  exerciseDaysCompleted: 0, // Diturunkan dari riwayat olahraga minggu berjalan
   mieTracker: {
     quota: 1,
     consumed: 0,
@@ -54,38 +56,90 @@ const defaultState = {
 
 const AppContext = createContext(null);
 
+// Gabungkan data tersimpan/impor dengan struktur default agar tidak ada field yang hilang.
+function normalizeData(parsed) {
+  const today = localDateStr();
+  const meals = (Array.isArray(parsed.meals) ? parsed.meals : []).map((m) => ({
+    ...m,
+    date: m.date || localDateStr(new Date(Number(m.id) || Date.now()))
+  }));
+  const sameDayWater = parsed.waterDate === today;
+  return {
+    ...defaultState,
+    ...parsed,
+    profile: {
+      ...defaultState.profile,
+      ...parsed.profile,
+      coords: {
+        lat: parsed.profile?.coords?.lat ?? defaultState.profile.coords.lat,
+        lng: parsed.profile?.coords?.lng ?? defaultState.profile.coords.lng
+      },
+      isNursing: false,
+      hpht: parsed.profile?.hpht || defaultState.profile.hpht,
+      periodEnd: parsed.profile?.periodEnd || defaultState.profile.periodEnd,
+      periodDuration: 9
+    },
+    mieTracker: { ...defaultState.mieTracker, ...parsed.mieTracker },
+    notifications: { ...defaultState.notifications, ...parsed.notifications },
+    meals,
+    exercises: Array.isArray(parsed.exercises) ? parsed.exercises : [],
+    weightLogs: Array.isArray(parsed.weightLogs) ? parsed.weightLogs : [],
+    waterGlasses: sameDayWater ? Number(parsed.waterGlasses) || 0 : 0,
+    waterDate: today
+  };
+}
+
+// Hitung ulang BMR (Mifflin-St Jeor, wanita) & TDEE (aktivitas ringan-rendah)
+function computeEnergy(profile) {
+  const w = Number(profile.currentWeight);
+  const h = Number(profile.height);
+  const a = Number(profile.age);
+  if (!(w > 0 && h > 0 && a > 0)) return {};
+  const bmr = Math.round(10 * w + 6.25 * h - 5 * a - 161);
+  return { bmr, tdee: Math.round(bmr * 1.2) };
+}
+
 export function AppProvider({ children }) {
-  const [data, setData] = useState(() => {
+  const [rawData, setData] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        // Ensure default structure and profile updates from latest requirements
-        return {
-          ...defaultState,
-          ...parsed,
-          profile: {
-            ...defaultState.profile,
-            ...parsed.profile,
-            coords: {
-              lat: parsed.profile?.coords?.lat ?? defaultState.profile.coords.lat,
-              lng: parsed.profile?.coords?.lng ?? defaultState.profile.coords.lng
-            },
-            isNursing: false,
-            hpht: parsed.profile?.hpht || defaultState.profile.hpht,
-            periodEnd: parsed.profile?.periodEnd || defaultState.profile.periodEnd,
-            periodDuration: 9
-          },
-          meals: Array.isArray(parsed.meals) ? parsed.meals : [],
-          exercises: Array.isArray(parsed.exercises) ? parsed.exercises : [],
-          weightLogs: Array.isArray(parsed.weightLogs) ? parsed.weightLogs : []
-        };
+        return normalizeData(JSON.parse(saved));
       }
     } catch (e) {
       console.error('Failed to load stored state:', e);
     }
-    return defaultState;
+    return { ...defaultState, waterDate: localDateStr() };
   });
+
+  // Tanggal hari ini (diperbarui otomatis saat lewat tengah malam)
+  const [today, setToday] = useState(localDateStr());
+  const [selectedDate, setSelectedDate] = useState(localDateStr());
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const now = localDateStr();
+      setToday((prev) => {
+        if (prev !== now) {
+          setSelectedDate((sel) => (sel === prev ? now : sel));
+          return now;
+        }
+        return prev;
+      });
+    }, 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Nilai turunan: air minum hari ini & hari olahraga minggu ini
+  const weekStart = startOfWeekStr();
+  const exerciseDays = new Set(
+    rawData.exercises.filter((e) => e.date >= weekStart && e.date <= today).map((e) => e.date)
+  ).size;
+  const data = {
+    ...rawData,
+    waterGlasses: rawData.waterDate === today ? rawData.waterGlasses : 0,
+    exerciseDaysCompleted: Math.min(exerciseDays, 5)
+  };
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -121,6 +175,19 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Terapkan nama/foto Google ke profil, tapi jangan timpa nama yang sudah diubah manual
+  const applyAuthProfile = (user) => {
+    if (!user?.user_metadata?.full_name) return;
+    setData((prev) => ({
+      ...prev,
+      profile: {
+        ...prev.profile,
+        name: prev.profile.nameCustom ? prev.profile.name : user.user_metadata.full_name,
+        avatar: user.user_metadata.avatar_url || prev.profile.avatar
+      }
+    }));
+  };
+
   // Check Supabase Auth state and listen to login changes
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
@@ -130,16 +197,7 @@ export function AppProvider({ children }) {
         .then((user) => {
           if (user) {
             setAuthUser(user);
-            if (user.user_metadata?.full_name) {
-              setData((prev) => ({
-                ...prev,
-                profile: {
-                  ...prev.profile,
-                  name: user.user_metadata.full_name || prev.profile.name,
-                  avatar: user.user_metadata.avatar_url || prev.profile.avatar
-                }
-              }));
-            }
+            applyAuthProfile(user);
           }
         })
         .catch((err) => {
@@ -149,16 +207,7 @@ export function AppProvider({ children }) {
       const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
         const user = session?.user || null;
         setAuthUser(user);
-        if (user && user.user_metadata?.full_name) {
-          setData((prev) => ({
-            ...prev,
-            profile: {
-              ...prev.profile,
-              name: user.user_metadata.full_name || prev.profile.name,
-              avatar: user.user_metadata.avatar_url || prev.profile.avatar
-            }
-          }));
-        }
+        applyAuthProfile(user);
       });
 
       return () => {
@@ -172,11 +221,11 @@ export function AppProvider({ children }) {
   // Sync state to LocalStorage
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(rawData));
     } catch (e) {
       console.error('Failed to persist state:', e);
     }
-  }, [data]);
+  }, [rawData]);
 
   // Network online/offline listener
   useEffect(() => {
@@ -197,22 +246,32 @@ export function AppProvider({ children }) {
     };
   }, []);
 
-  // Check calories alert whenever meals change (single trigger, with outside-app push & chime sound)
-  const totalCalories = data.meals.reduce((sum, meal) => sum + (Number(meal.calories) || 0), 0);
+  // Kalori hari ini (hanya makanan bertanggal hari ini)
+  const todayMeals = data.meals.filter((m) => m.date === today);
+  const totalCalories = todayMeals.reduce((sum, meal) => sum + (Number(meal.calories) || 0), 0);
   const calorieTarget = data.profile.dailyCalorieTarget || 1300;
   const isOverCalorieLimit = totalCalories > calorieTarget;
 
+  // Kalori pada tanggal yang sedang dilihat di layar Makan
+  const selectedMeals = data.meals.filter((m) => m.date === selectedDate);
+  const selectedCalories = selectedMeals.reduce((sum, meal) => sum + (Number(meal.calories) || 0), 0);
+
+  // Check calories alert whenever meals change (single trigger, with outside-app push & chime sound)
+  const calorieAlertEnabled = data.notifications?.calorieAlert !== false;
+
   useEffect(() => {
     if (isOverCalorieLimit && !hasAlertedOverLimit) {
-      showNotification(
-        '⚠️ Peringatan Kalori!',
-        `Kalori hari ini sudah melebihi target (${totalCalories.toLocaleString()} / ${calorieTarget.toLocaleString()} kkal). Istirahatkan pencernaan ya Bunda 🌸`
-      );
+      if (calorieAlertEnabled) {
+        showNotification(
+          '⚠️ Peringatan Kalori!',
+          `Kalori hari ini sudah melebihi target (${totalCalories.toLocaleString()} / ${calorieTarget.toLocaleString()} kkal). Istirahatkan pencernaan ya Bunda 🌸`
+        );
+      }
       setHasAlertedOverLimit(true);
     } else if (!isOverCalorieLimit && hasAlertedOverLimit) {
       setHasAlertedOverLimit(false);
     }
-  }, [totalCalories, calorieTarget, isOverCalorieLimit, hasAlertedOverLimit]);
+  }, [totalCalories, calorieTarget, isOverCalorieLimit, hasAlertedOverLimit, calorieAlertEnabled]);
 
   function triggerSyncToast(message) {
     setIsSyncing(true);
@@ -244,12 +303,17 @@ export function AppProvider({ children }) {
 
   // Action methods
   const addMeal = (newMeal) => {
+    const mealDate = newMeal.date || localDateStr();
+    const isToday = mealDate === localDateStr();
     const item = {
       id: Date.now(),
       name: newMeal.name,
       calories: Math.round(Number(newMeal.calories) * (Number(newMeal.portionMultiplier) || 1)),
       timeCategory: newMeal.timeCategory || 'Makan 1',
-      time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':'),
+      date: mealDate,
+      time: isToday
+        ? new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':')
+        : '',
       portion: newMeal.portionName || 'Sedang (1.0x)',
       portionMultiplier: Number(newMeal.portionMultiplier) || 1.0,
       icon: getIconForCategory(newMeal.timeCategory)
@@ -284,7 +348,9 @@ export function AppProvider({ children }) {
 
   const addWaterGlass = () => {
     setData((prev) => {
-      const next = Math.min(prev.waterGlasses + 1, 12);
+      const todayNow = localDateStr();
+      const base = prev.waterDate === todayNow ? prev.waterGlasses : 0;
+      const next = Math.min(base + 1, 12);
       if (next === 8) {
         confetti({
           particleCount: 60,
@@ -294,12 +360,12 @@ export function AppProvider({ children }) {
         });
         showNotification('Target Hidrasi Tercapai! 💧', 'Alhamdulillah, 8 gelas (2 Liter) air hari ini sudah terpenuhi.');
       }
-      return { ...prev, waterGlasses: next };
+      return { ...prev, waterGlasses: next, waterDate: todayNow };
     });
   };
 
   const resetWater = () => {
-    setData((prev) => ({ ...prev, waterGlasses: 0 }));
+    setData((prev) => ({ ...prev, waterGlasses: 0, waterDate: localDateStr() }));
   };
 
   const consumeMie = () => {
@@ -335,24 +401,35 @@ export function AppProvider({ children }) {
     showNotification('Siklus Mie Baru Dimulai 🍜', `Periode baru (${periodStr}) aktif dengan 1 kuota mie.`);
   };
 
-  const addWeightLog = (weight, waist) => {
+  const addWeightLog = (weight, waist, dateStr) => {
     const numWeight = parseFloat(weight);
     const numWaist = parseFloat(waist);
-    const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-    const weekCount = data.weightLogs.length + 1;
+    if (!Number.isFinite(numWeight) || numWeight <= 0) return false;
+    const dateISO = dateStr || localDateStr();
 
-    setData((prev) => ({
-      ...prev,
-      profile: {
-        ...prev.profile,
-        currentWeight: numWeight,
-        waistCircumference: numWaist
-      },
-      weightLogs: [
-        ...prev.weightLogs,
-        { week: `Mg ${weekCount}`, weight: numWeight, waist: numWaist, date: today }
+    setData((prev) => {
+      const waistValue = Number.isFinite(numWaist) && numWaist > 0 ? numWaist : prev.profile.waistCircumference;
+      // Satu catatan per tanggal: catatan baru menggantikan yang lama di tanggal sama
+      const merged = [
+        ...prev.weightLogs.filter((l) => l.dateISO !== dateISO),
+        {
+          weight: numWeight,
+          waist: waistValue,
+          dateISO,
+          date: formatDateLabel(dateISO, { day: 'numeric', month: 'short' })
+        }
       ]
-    }));
+        .sort((a, b) => String(a.dateISO || '').localeCompare(String(b.dateISO || '')))
+        .map((l, i) => ({ ...l, week: `Mg ${i + 1}` }));
+
+      const latest = merged[merged.length - 1];
+      const profile = {
+        ...prev.profile,
+        currentWeight: latest.weight,
+        waistCircumference: latest.waist
+      };
+      return { ...prev, profile: { ...profile, ...computeEnergy(profile) }, weightLogs: merged };
+    });
 
     confetti({
       particleCount: 50,
@@ -360,10 +437,12 @@ export function AppProvider({ children }) {
       origin: { y: 0.7 },
       colors: ['#b90538', '#dc2c4f', '#6ffbbe']
     });
+    return true;
   };
 
   const addExercise = (exercise) => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const exDate = exercise.date || localDateStr();
+    const isToday = exDate === localDateStr();
     const item = {
       id: Date.now(),
       name: exercise.name,
@@ -371,20 +450,16 @@ export function AppProvider({ children }) {
       duration: Number(exercise.duration) || 20,
       intensity: exercise.intensity || 'Sedang',
       caloriesBurned: Number(exercise.caloriesBurned) || 60,
-      time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':'),
-      date: todayStr
+      time: isToday
+        ? new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':')
+        : '',
+      date: exDate
     };
 
-    setData((prev) => {
-      const hadExerciseToday = prev.exercises.some((e) => e.date === todayStr);
-      const newDaysCount = hadExerciseToday ? prev.exerciseDaysCompleted : Math.min(prev.exerciseDaysCompleted + 1, 5);
-
-      return {
-        ...prev,
-        exercises: [item, ...prev.exercises],
-        exerciseDaysCompleted: newDaysCount
-      };
-    });
+    setData((prev) => ({
+      ...prev,
+      exercises: [item, ...prev.exercises]
+    }));
 
     confetti({
       particleCount: 30,
@@ -394,22 +469,12 @@ export function AppProvider({ children }) {
     });
   };
 
-  const resetExerciseWeek = () => {
-    setData((prev) => ({
-      ...prev,
-      exerciseDaysCompleted: 0
-    }));
-    showNotification('Target Olahraga Direset 🏃', 'Target 5 hari olahraga minggu baru telah dimulai.');
-  };
-
   const updateProfile = (fields) => {
-    setData((prev) => ({
-      ...prev,
-      profile: {
-        ...prev.profile,
-        ...fields
-      }
-    }));
+    setData((prev) => {
+      const profile = { ...prev.profile, ...fields };
+      if ('name' in fields) profile.nameCustom = true;
+      return { ...prev, profile: { ...profile, ...computeEnergy(profile) } };
+    });
   };
 
   const togglePuasaSunnah = () => {
@@ -456,7 +521,7 @@ export function AppProvider({ children }) {
       if (!parsed.profile || !parsed.meals) {
         throw new Error('Format data tidak valid');
       }
-      setData(parsed);
+      setData(normalizeData(parsed));
       showNotification('Data Dipulihkan 🔄', 'Semua riwayat kalori, berat badan, dan profil berhasil dimuat.');
       return true;
     } catch (err) {
@@ -485,7 +550,7 @@ export function AppProvider({ children }) {
   const clearAllData = () => {
     if (window.confirm('Apakah Anda yakin ingin menghapus semua data dan memulai dari catatan baru?')) {
       localStorage.removeItem(STORAGE_KEY);
-      setData(defaultState);
+      setData({ ...defaultState, waterDate: localDateStr() });
       showNotification('Data Dibersihkan 🧹', 'Seluruh data telah di-reset. Anda dapat mulai mengisi data riil baru!');
     }
   };
@@ -511,6 +576,12 @@ export function AppProvider({ children }) {
         quickMealModalOpen,
         setQuickMealModalOpen,
         totalCalories,
+        todayMeals,
+        today,
+        selectedDate,
+        setSelectedDate,
+        selectedMeals,
+        selectedCalories,
         calorieTarget,
         isOverCalorieLimit,
         addMeal,
@@ -522,7 +593,6 @@ export function AppProvider({ children }) {
         resetMieTracker,
         addWeightLog,
         addExercise,
-        resetExerciseWeek,
         updateProfile,
         togglePuasaSunnah,
         setFastingMode,

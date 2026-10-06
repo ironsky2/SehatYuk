@@ -292,6 +292,16 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Sinkronisasi manual dari tombol antarmuka
+  const triggerManualSync = async () => {
+    if (!authUser) {
+      showNotification('Masuk Akun Diperlukan 🌸', 'Silakan masuk dengan Google untuk sinkronisasi data cloud.');
+      return;
+    }
+    await syncToCloud(rawData, authUser);
+    showNotification('Sinkronisasi Selesai ☁️', 'Catatan kesehatan Bunda berhasil disinkronkan ke Cloud!');
+  };
+
   // Check Supabase Auth state and listen to login changes
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;

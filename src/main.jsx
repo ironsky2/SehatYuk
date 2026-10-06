@@ -33,9 +33,14 @@ class ErrorBoundary extends React.Component {
               <span className="material-symbols-outlined text-[28px]">refresh</span>
             </div>
             <h2 className="text-lg font-bold text-gray-800">Sedang Memuat Ulang</h2>
-            <p className="text-xs text-gray-500 mt-1 mb-4 leading-relaxed">
+            <p className="text-xs text-gray-500 mt-1 mb-3 leading-relaxed">
               Terjadi sedikit kendala saat memuat data. Klik tombol di bawah untuk memulihkan aplikasi secara otomatis.
             </p>
+            {this.state.error && (
+              <div className="w-full mb-3 p-2 bg-rose-100/60 rounded-xl text-left text-[11px] font-mono text-rose-800 break-words max-h-24 overflow-y-auto">
+                {this.state.error.message || String(this.state.error)}
+              </div>
+            )}
             <button
               onClick={this.handleReset}
               className="w-full py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-full font-bold text-xs shadow-md active:scale-95 transition-all"

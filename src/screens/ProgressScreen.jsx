@@ -17,6 +17,8 @@ export default function ProgressScreen() {
   const [weightModalOpen, setWeightModalOpen] = useState(false);
   const [newWeight, setNewWeight] = useState('');
   const [newWaist, setNewWaist] = useState('');
+  const [modalTargetWeight, setModalTargetWeight] = useState('');
+  const [modalStartWeight, setModalStartWeight] = useState('');
   const [weightDate, setWeightDate] = useState(today);
 
   const [exerciseModalOpen, setExerciseModalOpen] = useState(false);
@@ -26,8 +28,10 @@ export default function ProgressScreen() {
   const [exDate, setExDate] = useState(today);
 
   const openWeightModal = () => {
-    setNewWeight(String(data.profile?.currentWeight ?? ''));
-    setNewWaist(String(data.profile?.waistCircumference ?? ''));
+    setNewWeight(data.profile?.currentWeight != null ? String(data.profile.currentWeight) : '');
+    setNewWaist(data.profile?.waistCircumference != null ? String(data.profile.waistCircumference) : '');
+    setModalTargetWeight(data.profile?.targetWeight != null ? String(data.profile.targetWeight) : '');
+    setModalStartWeight(data.profile?.startWeight != null ? String(data.profile.startWeight) : '');
     setWeightDate(today);
     setWeightModalOpen(true);
   };
@@ -113,7 +117,16 @@ export default function ProgressScreen() {
       alert('Masukkan berat badan yang valid (20-300 kg).');
       return;
     }
-    const ok = addWeightLog(newWeight, newWaist, weightDate > today ? today : weightDate);
+    const extraFields = {};
+    const tW = parseFloat(modalTargetWeight);
+    if (!isNaN(tW) && tW >= 20 && tW <= 300) {
+      extraFields.targetWeight = tW;
+    }
+    const sW = parseFloat(modalStartWeight);
+    if (!isNaN(sW) && sW >= 20 && sW <= 300) {
+      extraFields.startWeight = sW;
+    }
+    const ok = addWeightLog(newWeight, newWaist, weightDate > today ? today : weightDate, extraFields);
     if (!ok) return;
     setWeightModalOpen(false);
     showNotification('Berat Badan Dicatat ⚖️', `Berat badan ${w} kg tersimpan.`);
@@ -194,27 +207,42 @@ export default function ProgressScreen() {
 
         {/* Stat Milestones Grid */}
         <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="p-2.5 rounded-xl bg-surface-container-low flex flex-col justify-center border border-outline-variant/20">
+          <button
+            type="button"
+            onClick={openWeightModal}
+            className="p-2.5 rounded-xl bg-surface-container-low flex flex-col justify-center border border-outline-variant/20 hover:border-primary/40 transition-colors cursor-pointer"
+            title="Klik untuk ubah BB Awal"
+          >
             <span className="font-label-sm text-[11px] text-on-surface-variant font-medium">Awal</span>
             <span className="font-headline-sm text-base text-on-surface font-bold mt-0.5">
               {startWeight > 0 ? startWeight.toFixed(1) : '-'}
             </span>
             <span className="font-label-sm text-[10px] text-outline">kg</span>
-          </div>
-          <div className="p-2.5 rounded-xl bg-primary-fixed flex flex-col justify-center border border-primary/20 shadow-xs">
+          </button>
+          <button
+            type="button"
+            onClick={openWeightModal}
+            className="p-2.5 rounded-xl bg-primary-fixed flex flex-col justify-center border border-primary/20 shadow-xs hover:border-primary transition-colors cursor-pointer"
+            title="Klik untuk catat timbangan sekarang"
+          >
             <span className="font-label-sm text-[11px] text-on-primary-fixed font-bold">Sekarang</span>
             <span className="font-headline-sm text-base text-primary font-black mt-0.5">
               {currentWeight > 0 ? currentWeight.toFixed(1) : '-'}
             </span>
             <span className="font-label-sm text-[10px] text-on-primary-fixed-variant font-bold">kg</span>
-          </div>
-          <div className="p-2.5 rounded-xl bg-surface-container-low flex flex-col justify-center border border-outline-variant/20">
+          </button>
+          <button
+            type="button"
+            onClick={openWeightModal}
+            className="p-2.5 rounded-xl bg-surface-container-low flex flex-col justify-center border border-outline-variant/20 hover:border-primary/40 transition-colors cursor-pointer"
+            title="Klik untuk ubah Target BB"
+          >
             <span className="font-label-sm text-[11px] text-on-surface-variant font-medium">Target</span>
             <span className="font-headline-sm text-base text-on-surface font-bold mt-0.5">
               {targetWeight > 0 ? targetWeight.toFixed(1) : '-'}
             </span>
             <span className="font-label-sm text-[10px] text-outline">kg</span>
-          </div>
+          </button>
         </div>
 
         {/* Monthly Progress Bar */}
@@ -538,7 +566,7 @@ export default function ProgressScreen() {
         <div className="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-surface-container-lowest rounded-2xl p-5 max-w-sm w-full shadow-2xl flex flex-col gap-3 border border-outline-variant/30">
             <div className="flex items-center justify-between border-b pb-2">
-              <h3 className="font-headline-sm font-bold text-base text-on-surface">Catat Berat Badan</h3>
+              <h3 className="font-headline-sm font-bold text-base text-on-surface">Catat Berat Badan & Target</h3>
               <button onClick={() => setWeightModalOpen(false)}>
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
@@ -564,7 +592,7 @@ export default function ProgressScreen() {
               </div>
               <div>
                 <label className="text-xs font-semibold text-on-surface-variant block mb-1">
-                  Berat Badan (kg)
+                  Berat Badan Sekarang (kg) *
                 </label>
                 <input
                   type="number"
@@ -572,29 +600,62 @@ export default function ProgressScreen() {
                   min="20"
                   max="300"
                   required
+                  placeholder="Contoh: 65.5"
                   value={newWeight}
                   onChange={(e) => setNewWeight(e.target.value)}
                   className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 text-lg font-bold border border-outline-variant/20"
                 />
               </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs font-semibold text-on-surface-variant block mb-1">
+                    BB Awal (kg)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="20"
+                    max="300"
+                    placeholder="Contoh: 70"
+                    value={modalStartWeight}
+                    onChange={(e) => setModalStartWeight(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm font-semibold border border-outline-variant/20"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-on-surface-variant block mb-1">
+                    Target BB (kg)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="20"
+                    max="300"
+                    placeholder="Contoh: 55"
+                    value={modalTargetWeight}
+                    onChange={(e) => setModalTargetWeight(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm font-semibold border border-outline-variant/20"
+                  />
+                </div>
+              </div>
               <div>
                 <label className="text-xs font-semibold text-on-surface-variant block mb-1">
-                  Lingkar Perut (cm)
+                  Lingkar Perut (cm) <span className="font-normal text-[11px] text-outline">(opsional)</span>
                 </label>
                 <input
                   type="number"
                   step="0.5"
-                  required
+                  placeholder="Contoh: 78"
                   value={newWaist}
                   onChange={(e) => setNewWaist(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 text-lg font-bold border border-outline-variant/20"
+                  className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm font-semibold border border-outline-variant/20"
                 />
               </div>
               <button
                 type="submit"
                 className="mt-2 w-full py-2.5 bg-primary text-on-primary rounded-full font-label-md text-xs font-bold shadow-xs active:scale-98"
               >
-                Simpan Timbangan
+                Simpan Timbangan & Target
               </button>
             </form>
           </div>

@@ -52,19 +52,20 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
   }, [isOpen]);
 
   useEffect(() => {
-    if (isOpen && data.profile) {
-      setName(data.profile.name || authUser?.user_metadata?.full_name || '');
-      setAge(data.profile.age ? String(data.profile.age) : '');
-      setHeight(data.profile.height ? String(data.profile.height) : '');
-      setStartWeight(data.profile.startWeight ? String(data.profile.startWeight) : '');
-      setCurrentWeight(data.profile.currentWeight ? String(data.profile.currentWeight) : '');
-      setTargetWeight(data.profile.targetWeight ? String(data.profile.targetWeight) : '');
-      setWaist(data.profile.waistCircumference ? String(data.profile.waistCircumference) : '');
-      setDailyCalorieTarget(data.profile.dailyCalorieTarget || 1400);
-      setIsNursing(Boolean(data.profile.isNursing));
+    if (isOpen && data?.profile) {
+      const p = data.profile;
+      setName(p.name || authUser?.user_metadata?.full_name || '');
+      setAge(p.age != null && p.age !== '' ? String(p.age) : '');
+      setHeight(p.height != null && p.height !== '' ? String(p.height) : '');
+      setStartWeight(p.startWeight != null && p.startWeight !== '' ? String(p.startWeight) : '');
+      setCurrentWeight(p.currentWeight != null && p.currentWeight !== '' ? String(p.currentWeight) : '');
+      setTargetWeight(p.targetWeight != null && p.targetWeight !== '' ? String(p.targetWeight) : '');
+      setWaist(p.waistCircumference != null && p.waistCircumference !== '' ? String(p.waistCircumference) : '');
+      setDailyCalorieTarget(p.dailyCalorieTarget || 1400);
+      setIsNursing(Boolean(p.isNursing));
       setIsSavedToast(false);
     }
-  }, [isOpen, data.profile, authUser]);
+  }, [isOpen]);
 
   // Kalkulasi Kalori Ilmiah & Terpercaya (Mifflin-St Jeor)
   const metrics = useMemo(() => {
@@ -119,13 +120,6 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
       tdee: metrics.tdee || null,
       isNursing
     };
-
-    if (currentWNum > 0 && currentWNum !== Number(data.profile.currentWeight)) {
-      if (!updatedFields.startWeight && !data.profile.startWeight) {
-        updatedFields.startWeight = currentWNum;
-      }
-      addWeightLog(currentWNum, waistNum, today);
-    }
 
     try {
       await updateProfile(updatedFields);

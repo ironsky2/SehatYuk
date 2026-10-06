@@ -11,6 +11,7 @@ import {
   syncAppState,
   fetchAppState,
   syncUserProfile,
+  fetchUserProfile,
   syncWaterLog,
   clearCloudUserData
 } from '../services/supabase';
@@ -131,6 +132,11 @@ export function AppProvider({ children }) {
     }
     return { ...defaultState, waterDate: localDateStr() };
   });
+
+  const rawDataRef = useRef(rawData);
+  useEffect(() => {
+    rawDataRef.current = rawData;
+  }, [rawData]);
 
   // Tanggal hari ini (diperbarui otomatis saat lewat tengah malam)
   const [today, setToday] = useState(localDateStr());
@@ -300,6 +306,21 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Helper commitState: simpan seketika ke LocalStorage, update state React, dan sinkronkan ke cloud
+  const commitState = (nextState, shouldSync = true) => {
+    rawDataRef.current = nextState;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
+    } catch (e) {
+      console.error('Failed to persist state to localStorage:', e);
+    }
+    setData(nextState);
+    if (shouldSync && authUser && navigator.onLine) {
+      syncToCloud(nextState, authUser);
+    }
+    return nextState;
+  };
+
   // Smart Merge Profile agar data lokal tidak ditimpa string kosong/null dari Cloud saat refresh
   function mergeProfileData(localProf, remoteProf, defaultProf) {
     const p1 = localProf || {};
@@ -348,10 +369,10 @@ export function AppProvider({ children }) {
       setIsSyncing(true);
       setSyncStatus('syncing');
 
-      // Ambil data dari tabel user_state DAN tabel profiles sekaligus
+      // Ambil data dari tabel user_state DAN tabel profiles sekaligus secara aman
       const [remoteState, remoteProfile] = await Promise.all([
-        fetchAppState(),
-        fetchUserProfile()
+        fetchAppState().catch(() => null),
+        fetchUserProfile().catch(() => null)
       ]);
 
       const dbProfile = remoteProfile ? {
@@ -375,68 +396,53 @@ export function AppProvider({ children }) {
         ...(remoteState?.profile || {})
       };
 
-      setData((local) => {
-        let currentLocal = local;
-        try {
-          const rawLocal = localStorage.getItem(STORAGE_KEY);
-          if (rawLocal) {
-            const parsed = JSON.parse(rawLocal);
-            if (parsed) currentLocal = parsed;
-          }
-        } catch {}
+      const currentLocal = rawDataRef.current || defaultState;
 
-        const mergedProfile = mergeProfileData(
-          currentLocal.profile,
-          combinedRemoteProfile,
-          defaultState.profile
-        );
+      const mergedProfile = mergeProfileData(
+        currentLocal.profile,
+        combinedRemoteProfile,
+        defaultState.profile
+      );
 
-        const localMeals = Array.isArray(currentLocal.meals) ? currentLocal.meals : [];
-        const remoteMeals = Array.isArray(remoteState?.meals) ? remoteState.meals : [];
-        const localMealIds = new Set(localMeals.map((m) => m.id));
-        const mergedMeals = [
-          ...localMeals,
-          ...remoteMeals.filter((m) => !localMealIds.has(m.id))
-        ].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+      const localMeals = Array.isArray(currentLocal.meals) ? currentLocal.meals : [];
+      const remoteMeals = Array.isArray(remoteState?.meals) ? remoteState.meals : [];
+      const localMealIds = new Set(localMeals.map((m) => m.id));
+      const mergedMeals = [
+        ...localMeals,
+        ...remoteMeals.filter((m) => !localMealIds.has(m.id))
+      ].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 
-        const localWeights = Array.isArray(currentLocal.weightLogs) ? currentLocal.weightLogs : [];
-        const remoteWeights = Array.isArray(remoteState?.weightLogs) ? remoteState.weightLogs : [];
-        const localWeightDates = new Set(localWeights.map((w) => w.dateISO));
-        const mergedWeights = [
-          ...localWeights,
-          ...remoteWeights.filter((w) => !localWeightDates.has(w.dateISO))
-        ].sort((a, b) => String(a.dateISO || '').localeCompare(String(b.dateISO || '')));
+      const localWeights = Array.isArray(currentLocal.weightLogs) ? currentLocal.weightLogs : [];
+      const remoteWeights = Array.isArray(remoteState?.weightLogs) ? remoteState.weightLogs : [];
+      const localWeightDates = new Set(localWeights.map((w) => w.dateISO));
+      const mergedWeights = [
+        ...localWeights,
+        ...remoteWeights.filter((w) => !localWeightDates.has(w.dateISO))
+      ].sort((a, b) => String(a.dateISO || '').localeCompare(String(b.dateISO || '')));
 
-        const localEx = Array.isArray(currentLocal.exercises) ? currentLocal.exercises : [];
-        const remoteEx = Array.isArray(remoteState?.exercises) ? remoteState.exercises : [];
-        const localExIds = new Set(localEx.map((e) => e.id));
-        const mergedExercises = [
-          ...localEx,
-          ...remoteEx.filter((e) => !localExIds.has(e.id))
-        ];
+      const localEx = Array.isArray(currentLocal.exercises) ? currentLocal.exercises : [];
+      const remoteEx = Array.isArray(remoteState?.exercises) ? remoteState.exercises : [];
+      const localExIds = new Set(localEx.map((e) => e.id));
+      const mergedExercises = [
+        ...localEx,
+        ...remoteEx.filter((e) => !localExIds.has(e.id))
+      ];
 
-        const mergedState = normalizeData({
-          ...defaultState,
-          ...(remoteState || {}),
-          ...currentLocal,
-          profile: mergedProfile,
-          meals: mergedMeals,
-          weightLogs: mergedWeights,
-          exercises: mergedExercises
-        });
-
-        // Simpan seketika ke localStorage
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedState));
-        } catch (e) {
-          console.error('Failed to save merged state to localStorage:', e);
-        }
-
-        // Upload kembali hasil gabungan ke Supabase agar Cloud tersinkronkan penuh
-        syncToCloud(mergedState, user);
-
-        return mergedState;
+      const mergedState = normalizeData({
+        ...defaultState,
+        ...(remoteState || {}),
+        ...currentLocal,
+        profile: mergedProfile,
+        meals: mergedMeals,
+        weightLogs: mergedWeights,
+        exercises: mergedExercises
       });
+
+      // Simpan seketika ke localStorage & memory
+      commitState(mergedState, false);
+
+      // Upload kembali hasil gabungan ke Supabase agar Cloud tersinkronkan penuh
+      await syncToCloud(mergedState, user);
 
       setSyncStatus('synced');
       const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
@@ -691,16 +697,12 @@ export function AppProvider({ children }) {
       analyzedByAi: Boolean(newMeal.analyzedByAi)
     };
 
-    setData((prev) => {
-      const nextState = {
-        ...prev,
-        meals: [item, ...prev.meals]
-      };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
-      } catch {}
-      return nextState;
-    });
+    const prev = rawDataRef.current || defaultState;
+    const nextState = {
+      ...prev,
+      meals: [item, ...(prev.meals || [])]
+    };
+    commitState(nextState, true);
 
     confetti({
       particleCount: 25,
@@ -711,71 +713,63 @@ export function AppProvider({ children }) {
   };
 
   const deleteMeal = (id) => {
-    setData((prev) => {
-      const nextState = {
-        ...prev,
-        meals: prev.meals.filter((m) => m.id !== id)
-      };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
-      } catch {}
-      return nextState;
-    });
+    const prev = rawDataRef.current || defaultState;
+    const nextState = {
+      ...prev,
+      meals: (prev.meals || []).filter((m) => m.id !== id)
+    };
+    commitState(nextState, true);
   };
 
   const editMeal = (id, updatedFields) => {
-    setData((prev) => {
-      const nextState = {
-        ...prev,
-        meals: prev.meals.map((m) => (m.id === id ? { ...m, ...updatedFields } : m))
-      };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
-      } catch {}
-      return nextState;
-    });
+    const prev = rawDataRef.current || defaultState;
+    const nextState = {
+      ...prev,
+      meals: (prev.meals || []).map((m) => (m.id === id ? { ...m, ...updatedFields } : m))
+    };
+    commitState(nextState, true);
   };
 
   const addWaterGlass = () => {
-    setData((prev) => {
-      const todayNow = localDateStr();
-      const base = prev.waterDate === todayNow ? prev.waterGlasses : 0;
-      const next = Math.min(base + 1, 12);
-      if (next === 8) {
-        confetti({
-          particleCount: 60,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: ['#00855b', '#4edea3', '#b90538']
-        });
-        showNotification('Target Hidrasi Tercapai! 💧', 'Alhamdulillah, 8 gelas (2 Liter) air hari ini sudah terpenuhi.');
-      }
-      const nextState = { ...prev, waterGlasses: next, waterDate: todayNow };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
-      } catch {}
-      return nextState;
-    });
+    const prev = rawDataRef.current || defaultState;
+    const todayNow = localDateStr();
+    const base = prev.waterDate === todayNow ? prev.waterGlasses : 0;
+    const next = Math.min(base + 1, 12);
+    if (next === 8) {
+      confetti({
+        particleCount: 60,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#00855b', '#4edea3', '#b90538']
+      });
+      showNotification('Target Hidrasi Tercapai! 💧', 'Alhamdulillah, 8 gelas (2 Liter) air hari ini sudah terpenuhi.');
+    }
+    const nextState = { ...prev, waterGlasses: next, waterDate: todayNow };
+    commitState(nextState, true);
   };
 
   const resetWater = () => {
-    setData((prev) => ({ ...prev, waterGlasses: 0, waterDate: localDateStr() }));
+    const prev = rawDataRef.current || defaultState;
+    const nextState = { ...prev, waterGlasses: 0, waterDate: localDateStr() };
+    commitState(nextState, true);
   };
 
   const consumeMie = () => {
-    if (data.mieTracker.quota <= 0) {
+    const prev = rawDataRef.current || defaultState;
+    if (prev.mieTracker.quota <= 0) {
       alert('⛔ Jatah mie periode ini sudah habis! Tahan dulu ya Bunda 💪');
       return false;
     }
-    setData((prev) => ({
+    const nextState = {
       ...prev,
       mieTracker: {
         ...prev.mieTracker,
         quota: 0,
-        consumed: prev.mieTracker.consumed + 1,
+        consumed: (prev.mieTracker.consumed || 0) + 1,
         lastEaten: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
       }
-    }));
+    };
+    commitState(nextState, true);
     return true;
   };
 
@@ -783,7 +777,8 @@ export function AppProvider({ children }) {
     const today = new Date();
     const twoWeeksLater = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
     const periodStr = `${today.getDate()} ${today.toLocaleDateString('id-ID', { month: 'short' })} - ${twoWeeksLater.getDate()} ${twoWeeksLater.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' })}`;
-    setData((prev) => ({
+    const prev = rawDataRef.current || defaultState;
+    const nextState = {
       ...prev,
       mieTracker: {
         quota: 1,
@@ -791,45 +786,49 @@ export function AppProvider({ children }) {
         period: periodStr,
         lastEaten: prev.mieTracker.lastEaten || 'Belum ada'
       }
-    }));
+    };
+    commitState(nextState, true);
     showNotification('Siklus Mie Baru Dimulai 🍜', `Periode baru (${periodStr}) aktif dengan 1 kuota mie.`);
   };
 
-  const addWeightLog = (weight, waist, dateStr) => {
+  const addWeightLog = (weight, waist, dateStr, extraFields = {}) => {
     const numWeight = parseFloat(weight);
     const numWaist = parseFloat(waist);
     if (!Number.isFinite(numWeight) || numWeight <= 0) return false;
     const dateISO = dateStr || localDateStr();
 
-    setData((prev) => {
-      const waistValue = Number.isFinite(numWaist) && numWaist > 0 ? numWaist : prev.profile.waistCircumference;
-      // Satu catatan per tanggal: catatan baru menggantikan yang lama di tanggal sama
-      const merged = [
-        ...prev.weightLogs.filter((l) => l.dateISO !== dateISO),
-        {
-          weight: numWeight,
-          waist: waistValue,
-          dateISO,
-          date: formatDateLabel(dateISO, { day: 'numeric', month: 'short' })
-        }
-      ]
-        .sort((a, b) => String(a.dateISO || '').localeCompare(String(b.dateISO || '')))
-        .map((l, i) => ({ ...l, week: `Mg ${i + 1}` }));
+    const prev = rawDataRef.current || defaultState;
+    const waistValue = Number.isFinite(numWaist) && numWaist > 0 ? numWaist : Number(prev.profile.waistCircumference) || 0;
 
-      const latest = merged[merged.length - 1];
-      const profile = {
-        ...prev.profile,
-        currentWeight: latest.weight,
-        waistCircumference: latest.waist
-      };
-      const nextState = { ...prev, profile: { ...profile, ...computeEnergy(profile) }, weightLogs: merged };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
-      } catch (e) {
-        console.error('Failed to persist weight log:', e);
+    const merged = [
+      ...(prev.weightLogs || []).filter((l) => l.dateISO !== dateISO),
+      {
+        weight: numWeight,
+        waist: waistValue,
+        dateISO,
+        date: formatDateLabel(dateISO, { day: 'numeric', month: 'short' })
       }
-      return nextState;
-    });
+    ]
+      .sort((a, b) => String(a.dateISO || '').localeCompare(String(b.dateISO || '')))
+      .map((l, i) => ({ ...l, week: `Mg ${i + 1}` }));
+
+    const latest = merged[merged.length - 1];
+    const profile = {
+      ...prev.profile,
+      startWeight: prev.profile.startWeight || extraFields.startWeight || numWeight,
+      targetWeight: extraFields.targetWeight !== undefined ? extraFields.targetWeight : prev.profile.targetWeight,
+      currentWeight: latest.weight,
+      waistCircumference: latest.waist,
+      ...extraFields
+    };
+
+    const nextState = {
+      ...prev,
+      profile: { ...profile, ...computeEnergy(profile) },
+      weightLogs: merged
+    };
+
+    commitState(nextState, true);
 
     confetti({
       particleCount: 50,
@@ -856,10 +855,13 @@ export function AppProvider({ children }) {
       date: exDate
     };
 
-    setData((prev) => ({
+    const prev = rawDataRef.current || defaultState;
+    const nextState = {
       ...prev,
-      exercises: [item, ...prev.exercises]
-    }));
+      exercises: [item, ...(prev.exercises || [])]
+    };
+
+    commitState(nextState, true);
 
     confetti({
       particleCount: 30,
@@ -870,48 +872,71 @@ export function AppProvider({ children }) {
   };
 
   const updateProfile = async (fields) => {
-    let nextState = null;
-    setData((prev) => {
-      const profile = { ...prev.profile, ...fields };
-      if ('name' in fields && fields.name) profile.nameCustom = true;
-      nextState = { ...prev, profile: { ...profile, ...computeEnergy(profile) } };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
-      } catch (e) {
-        console.error('Failed to persist profile to localStorage:', e);
-      }
-      return nextState;
-    });
+    const prev = rawDataRef.current || defaultState;
+    const profile = { ...prev.profile, ...fields };
+    if ('name' in fields && fields.name) profile.nameCustom = true;
+    const updatedProfile = { ...profile, ...computeEnergy(profile) };
 
-    // Sinkronisasi seketika ke Cloud Supabase jika pengguna login & online
-    if (nextState && authUser && navigator.onLine) {
-      await syncToCloud(nextState, authUser);
+    let nextWeightLogs = prev.weightLogs || [];
+    const currentWNum = Number(fields.currentWeight);
+    if (currentWNum > 0) {
+      const waistVal = Number(fields.waistCircumference) || Number(updatedProfile.waistCircumference) || 0;
+      const todayISO = localDateStr();
+      const existingTodayIndex = nextWeightLogs.findIndex(l => l.dateISO === todayISO);
+      const newEntry = {
+        weight: currentWNum,
+        waist: waistVal,
+        dateISO: todayISO,
+        date: formatDateLabel(todayISO, { day: 'numeric', month: 'short' }),
+        week: existingTodayIndex >= 0 ? nextWeightLogs[existingTodayIndex].week : `Mg ${nextWeightLogs.length + 1}`
+      };
+      if (existingTodayIndex >= 0) {
+        nextWeightLogs = nextWeightLogs.map((l, idx) => idx === existingTodayIndex ? newEntry : l);
+      } else {
+        nextWeightLogs = [...nextWeightLogs, newEntry]
+          .sort((a, b) => String(a.dateISO || '').localeCompare(String(b.dateISO || '')))
+          .map((l, i) => ({ ...l, week: `Mg ${i + 1}` }));
+      }
     }
+
+    const nextState = {
+      ...prev,
+      profile: updatedProfile,
+      weightLogs: nextWeightLogs
+    };
+
+    commitState(nextState, true);
     return nextState;
   };
 
   const togglePuasaSunnah = () => {
-    setData((prev) => ({
+    const prev = rawDataRef.current || defaultState;
+    const nextState = {
       ...prev,
       isPuasaSunnahActive: !prev.isPuasaSunnahActive
-    }));
+    };
+    commitState(nextState, true);
   };
 
   const setFastingMode = (mode) => {
-    setData((prev) => ({
+    const prev = rawDataRef.current || defaultState;
+    const nextState = {
       ...prev,
       fastingMode: mode
-    }));
+    };
+    commitState(nextState, true);
   };
 
   const toggleNotification = (key) => {
-    setData((prev) => ({
+    const prev = rawDataRef.current || defaultState;
+    const nextState = {
       ...prev,
       notifications: {
-        ...prev.notifications,
-        [key]: !prev.notifications[key]
+        ...(prev.notifications || defaultState.notifications),
+        [key]: !prev.notifications?.[key]
       }
-    }));
+    };
+    commitState(nextState, true);
   };
 
   const exportData = () => {
@@ -934,7 +959,8 @@ export function AppProvider({ children }) {
       if (!parsed.profile || !parsed.meals) {
         throw new Error('Format data tidak valid');
       }
-      setData(normalizeData(parsed));
+      const normalized = normalizeData(parsed);
+      commitState(normalized, true);
       showNotification('Data Dipulihkan 🔄', 'Semua riwayat kalori, berat badan, dan profil berhasil dimuat.');
       return true;
     } catch (err) {
@@ -971,19 +997,19 @@ export function AppProvider({ children }) {
   };
 
   const toggleFastingActive = (forcedValue) => {
-    setData((prev) => {
-      const next = typeof forcedValue === 'boolean' ? forcedValue : !prev.isFastingActive;
-      showNotification(
-        next ? 'Mode Puasa Aktif 🌙' : 'Mode Puasa Non-Aktif 🍽️',
-        next
-          ? 'Pelacak puasa aktif. Jadwal sahur & buka puasa siap menemani Bunda.'
-          : 'Puasa dinonaktifkan untuk hari ini. Jadwal makan normal diterapkan.'
-      );
-      return {
-        ...prev,
-        isFastingActive: next
-      };
-    });
+    const prev = rawDataRef.current || defaultState;
+    const next = typeof forcedValue === 'boolean' ? forcedValue : !prev.isFastingActive;
+    showNotification(
+      next ? 'Mode Puasa Aktif 🌙' : 'Mode Puasa Non-Aktif 🍽️',
+      next
+        ? 'Pelacak puasa aktif. Jadwal sahur & buka puasa siap menemani Bunda.'
+        : 'Puasa dinonaktifkan untuk hari ini. Jadwal makan normal diterapkan.'
+    );
+    const nextState = {
+      ...prev,
+      isFastingActive: next
+    };
+    commitState(nextState, true);
   };
 
   const clearAllData = async (skipConfirm = false) => {
@@ -991,7 +1017,6 @@ export function AppProvider({ children }) {
       return;
     }
     try {
-      localStorage.removeItem(STORAGE_KEY);
       const cleanState = {
         ...defaultState,
         waterDate: localDateStr(),
@@ -1014,7 +1039,7 @@ export function AppProvider({ children }) {
           isNursing: false
         }
       };
-      setData(cleanState);
+      commitState(cleanState, false);
       // Hapus & reset data di Cloud Supabase jika pengguna sedang terhubung
       if (authUser && isSupabaseConfigured) {
         await clearCloudUserData();

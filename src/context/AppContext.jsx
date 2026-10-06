@@ -168,7 +168,24 @@ export function AppProvider({ children }) {
   const [quickMealModalOpen, setQuickMealModalOpen] = useState(false);
   const [hasAlertedOverLimit, setHasAlertedOverLimit] = useState(false);
   const [authUser, setAuthUser] = useState(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(Boolean(isSupabaseConfigured));
+  const [isGuestMode, setIsGuestMode] = useState(() => {
+    try {
+      return sessionStorage.getItem('sehat_yuk_guest_session') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const isInitialSyncDone = useRef(false);
+
+  const continueAsGuest = () => {
+    setIsGuestMode(true);
+    try {
+      sessionStorage.setItem('sehat_yuk_guest_session', 'true');
+    } catch (e) {
+      console.warn('SessionStorage error:', e);
+    }
+  };
 
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(() => {
     try {
@@ -312,7 +329,10 @@ export function AppProvider({ children }) {
 
   // Check Supabase Auth state, restore session, and listen to login changes
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) return;
+    if (!isSupabaseConfigured || !supabase) {
+      setIsAuthLoading(false);
+      return;
+    }
 
     try {
       getStoredSession()
@@ -329,11 +349,15 @@ export function AppProvider({ children }) {
         })
         .catch((err) => {
           console.warn('Auth get session error:', err);
+        })
+        .finally(() => {
+          setIsAuthLoading(false);
         });
 
       const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
         const user = session?.user || null;
         setAuthUser(user);
+        setIsAuthLoading(false);
         if (user) {
           applyAuthProfile(user);
           if (!isInitialSyncDone.current) {
@@ -342,6 +366,10 @@ export function AppProvider({ children }) {
           }
         } else if (event === 'SIGNED_OUT') {
           isInitialSyncDone.current = false;
+          setIsGuestMode(false);
+          try {
+            sessionStorage.removeItem('sehat_yuk_guest_session');
+          } catch {}
           setSyncStatus('idle');
         }
       });
@@ -351,6 +379,7 @@ export function AppProvider({ children }) {
       };
     } catch (err) {
       console.warn('Supabase auth listener initialization error:', err);
+      setIsAuthLoading(false);
     }
   }, []);
 
@@ -738,9 +767,13 @@ export function AppProvider({ children }) {
   };
 
   const handleSignOut = async () => {
+    setIsGuestMode(false);
+    try {
+      sessionStorage.removeItem('sehat_yuk_guest_session');
+    } catch {}
     await signOutUser();
     setAuthUser(null);
-    showNotification('Berhasil Keluar', 'Sesi akun Google telah diakhiri.');
+    showNotification('Berhasil Keluar', 'Sesi akun telah diakhiri.');
   };
 
   const toggleFastingActive = (forcedValue) => {
@@ -810,6 +843,9 @@ export function AppProvider({ children }) {
         lastSyncedAt,
         triggerManualSync,
         authUser,
+        isAuthLoading,
+        isGuestMode,
+        continueAsGuest,
         isSupabaseConfigured,
         hasCompletedOnboarding,
         completeOnboarding,

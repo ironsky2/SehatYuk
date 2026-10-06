@@ -382,7 +382,10 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
                     </button>
                     <button
                       type="button"
-                      onClick={handleSignOut}
+                      onClick={() => {
+                        handleSignOut();
+                        onClose();
+                      }}
                       className="py-2 px-3 rounded-xl bg-error-container text-on-error-container text-xs font-bold hover:bg-error-container/80 active:scale-95 transition-all"
                     >
                       Keluar

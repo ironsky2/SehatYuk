@@ -13,7 +13,14 @@ import ProgressScreen from './screens/ProgressScreen';
 import OnboardingAuthScreen from './screens/OnboardingAuthScreen';
 
 export default function App() {
-  const { activeTab, hasCompletedOnboarding, completeOnboarding, authUser } = useApp();
+  const {
+    activeTab,
+    hasCompletedOnboarding,
+    completeOnboarding,
+    authUser,
+    isAuthLoading,
+    isGuestMode
+  } = useApp();
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
 
@@ -40,9 +47,42 @@ export default function App() {
     }
   };
 
-  // Tampilkan perkenalan singkat aplikasi saat pertama kali buka setelah instalasi
+  // 1. Loading splash screen saat memeriksa sesi akun dari storage
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-6 select-none max-w-md mx-auto">
+        <div className="w-20 h-20 rounded-3xl bg-rose-50 flex items-center justify-center shadow-lg shadow-rose-500/10 mb-4 animate-pulse">
+          <img src="/logo.png" alt="Sehat Yuk" className="w-12 h-12 object-contain" />
+        </div>
+        <h1 className="font-headline-sm font-bold text-lg text-primary tracking-tight">Sehat Yuk!</h1>
+        <p className="text-xs text-on-surface-variant mt-2 flex items-center gap-1.5">
+          <span className="material-symbols-outlined text-[16px] animate-spin text-primary">sync</span>
+          Memeriksa sesi login...
+        </p>
+      </div>
+    );
+  }
+
+  // 2. Aplikasi baru buka setelah install (belum pernah onboarding):
+  //    Tampilkan perkenalan singkat, selesai perkenalan langsung arahkan ke halaman autentikasi
   if (!hasCompletedOnboarding) {
-    return <OnboardingAuthScreen onComplete={completeOnboarding} />;
+    return (
+      <OnboardingAuthScreen
+        initialMode="intro"
+        onCompleteIntro={completeOnboarding}
+      />
+    );
+  }
+
+  // 3. Sudah pernah lewati perkenalan, tetapi sesi login habis / belum login:
+  //    Langsung tampilkan HALAMAN AUTENTIKASI tanpa mengulang perkenalan
+  if (!authUser && !isGuestMode) {
+    return (
+      <OnboardingAuthScreen
+        initialMode="auth"
+        onCompleteIntro={completeOnboarding}
+      />
+    );
   }
 
   const renderActiveScreen = () => {

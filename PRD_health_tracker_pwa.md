@@ -353,6 +353,14 @@ Semua pertanyaan desain telah diputuskan dan disetujui:
 
 Bagian ini dicatat per tanggal agar progres hari sebelumnya tidak terlewat.
 
+### 6 Oktober 2026 — v1.5 (Penyempurnaan Alur Onboarding & Layar Autentikasi Saat Sesi Berakhir)
+
+**Peningkatan & Fitur Baru:**
+- 🔐 **Alur Onboarding & Autentikasi Terpadu**:
+  - **Selesai Perkenalan Langsung ke Autentikasi**: Ketika pengguna baru selesai melihat slide perkenalan (atau menekan "Lewati ke Masuk"), aplikasi langsung menampilkan **Halaman Autentikasi** (Google Sign-In, Email/Password, atau Mode Tamu Offline), tidak langsung bypass ke dashboard tanpa autentikasi.
+  - **Layar Autentikasi Otomatis Saat Sesi Habis**: Jika pengguna sudah pernah melewati perkenalan aplikasi, namun sesi login habis (expired) atau pengguna menekan tombol "Keluar", saat aplikasi dibuka kembali pengguna langsung disajikan **Halaman Autentikasi** tanpa harus mengulang slide perkenalan.
+  - **Mode Tamu Fleksibel**: Pengguna tetap dapat memilih opsi "Lanjut sebagai Tamu (Mode Offline)" untuk mencoba seluruh fitur secara instan di perangkat.
+
 ### 6 Oktober 2026 — v1.4 (Penyempurnaan 6 Poin Utama: Sesi Auth, Intro Onboarding, Pengaturan Profil, Puasa Adaptif, GPS Otomatis, & Clean Data)
 
 **Peningkatan & Fitur Baru:**

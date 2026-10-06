@@ -65,11 +65,11 @@ const SLIDES = [
   }
 ];
 
-export default function OnboardingAuthScreen({ onComplete }) {
-  const { handleGoogleSignIn, isSupabaseConfigured, showNotification } = useApp();
+export default function OnboardingAuthScreen({ initialMode = 'intro', onCompleteIntro }) {
+  const { handleGoogleSignIn, isSupabaseConfigured, showNotification, continueAsGuest } = useApp();
 
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [showAuthForm, setShowAuthForm] = useState(false);
+  const [showAuthForm, setShowAuthForm] = useState(initialMode === 'auth');
   const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
 
   // Form states
@@ -81,11 +81,16 @@ export default function OnboardingAuthScreen({ onComplete }) {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
+  const handleFinishIntro = () => {
+    onCompleteIntro?.();
+    setShowAuthForm(true);
+  };
+
   const handleNextSlide = () => {
     if (currentSlide < SLIDES.length - 1) {
       setCurrentSlide((prev) => prev + 1);
     } else {
-      setShowAuthForm(true);
+      handleFinishIntro();
     }
   };
 
@@ -123,9 +128,7 @@ export default function OnboardingAuthScreen({ onComplete }) {
         } else {
           setSuccessMessage('Pendaftaran berhasil! Akun Anda telah aktif.');
           showNotification('Selamat Datang!', 'Akun Anda telah berhasil dibuat.');
-          setTimeout(() => {
-            onComplete();
-          }, 1000);
+          onCompleteIntro?.();
         }
       } else {
         const { data, error } = await signInWithEmail(email.trim(), password);
@@ -133,11 +136,9 @@ export default function OnboardingAuthScreen({ onComplete }) {
         if (error) {
           setErrorMessage(error.message || 'Email atau password salah.');
         } else {
-          setSuccessMessage('Login berhasil! Mengalihkan ke aplikasi...');
+          setSuccessMessage('Login berhasil! Membuka aplikasi...');
           showNotification('Berhasil Masuk', 'Selamat datang kembali di Sehat Yuk!');
-          setTimeout(() => {
-            onComplete();
-          }, 800);
+          onCompleteIntro?.();
         }
       }
     } catch (err) {
@@ -151,9 +152,8 @@ export default function OnboardingAuthScreen({ onComplete }) {
     setErrorMessage('');
     setLoading(true);
     try {
+      onCompleteIntro?.();
       await handleGoogleSignIn();
-      // Google OAuth redirects to provider, or onComplete
-      onComplete();
     } catch (err) {
       setErrorMessage('Gagal menghubungkan Google: ' + err.message);
       setLoading(false);
@@ -161,8 +161,9 @@ export default function OnboardingAuthScreen({ onComplete }) {
   };
 
   const handleContinueAsGuest = () => {
+    onCompleteIntro?.();
+    continueAsGuest?.();
     showNotification('Mode Offline Aktif 🌸', 'Selamat mencoba Sehat Yuk! Data tersimpan di HP Anda.');
-    onComplete();
   };
 
   return (
@@ -182,18 +183,18 @@ export default function OnboardingAuthScreen({ onComplete }) {
 
         {!showAuthForm ? (
           <button
-            onClick={onComplete}
+            onClick={handleFinishIntro}
             className="text-xs font-bold text-on-surface-variant hover:text-primary transition-colors py-1.5 px-3 rounded-full bg-surface-container-high/60"
           >
-            Lewati & Masuk ➔
+            Lewati ke Masuk ➔
           </button>
         ) : (
           <button
             onClick={() => setShowAuthForm(false)}
             className="text-xs font-bold text-on-surface-variant hover:text-primary transition-colors py-1.5 px-3 rounded-full bg-surface-container-high/60 flex items-center gap-1"
           >
-            <span className="material-symbols-outlined text-[14px]">arrow_back</span>
-            Slide Panduan
+            <span className="material-symbols-outlined text-[14px]">info</span>
+            Panduan Fitur
           </button>
         )}
       </header>
@@ -451,22 +452,12 @@ export default function OnboardingAuthScreen({ onComplete }) {
               )}
 
               {currentSlide === SLIDES.length - 1 ? (
-                <div className="flex-1 flex gap-2">
-                  <button
-                    onClick={onComplete}
-                    className="flex-1 py-3.5 px-4 rounded-full bg-primary hover:bg-primary-container text-on-primary font-bold text-xs shadow-md shadow-primary/25 flex items-center justify-center gap-1.5 active:scale-98 transition-all"
-                  >
-                    <span>Mulai Gunakan App 🌸</span>
-                    <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                  </button>
-                  <button
-                    onClick={() => setShowAuthForm(true)}
-                    className="py-3.5 px-3 rounded-full bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold active:scale-95 transition-all"
-                    title="Masuk atau Hubungkan Akun"
-                  >
-                    Masuk
-                  </button>
-                </div>
+                <button
+                  onClick={handleFinishIntro}
+                  className="flex-1 py-3.5 px-4 rounded-full bg-primary hover:bg-primary-container text-on-primary font-bold text-xs shadow-md shadow-primary/25 flex items-center justify-center gap-1.5 active:scale-98 transition-all"
+                >
+                  <span>Lanjut ke Autentikasi ➔</span>
+                </button>
               ) : (
                 <button
                   onClick={handleNextSlide}

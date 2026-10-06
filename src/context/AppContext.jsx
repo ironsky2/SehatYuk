@@ -458,7 +458,11 @@ export function AppProvider({ children }) {
         : '',
       portion: newMeal.portionName || 'Sedang (1.0x)',
       portionMultiplier: Number(newMeal.portionMultiplier) || 1.0,
-      icon: getIconForCategory(newMeal.timeCategory)
+      icon: getIconForCategory(newMeal.timeCategory),
+      macros: newMeal.macros || null,
+      items: newMeal.items || null,
+      healthTip: newMeal.healthTip || null,
+      analyzedByAi: Boolean(newMeal.analyzedByAi)
     };
 
     setData((prev) => ({

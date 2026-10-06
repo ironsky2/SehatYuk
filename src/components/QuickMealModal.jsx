@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 
 export default function QuickMealModal() {
-  const { quickMealModalOpen, setQuickMealModalOpen, addMeal } = useApp();
+  const { quickMealModalOpen, setQuickMealModalOpen, addMeal, setActiveTab } = useApp();
 
   const [timeCategory, setTimeCategory] = useState('Buka Puasa');
   const [foodName, setFoodName] = useState('');
@@ -231,6 +231,19 @@ export default function QuickMealModal() {
                 <span>Simpan Catatan Makan</span>
               </>
             )}
+          </button>
+
+          {/* AI Shortcut button */}
+          <button
+            type="button"
+            onClick={() => {
+              setQuickMealModalOpen(false);
+              setActiveTab('makan');
+            }}
+            className="w-full py-2 px-3 rounded-xl bg-primary-fixed/30 hover:bg-primary-fixed/50 text-on-primary-fixed font-label-sm text-xs font-bold transition-all flex items-center justify-center gap-1.5 border border-primary/20"
+          >
+            <span className="material-symbols-outlined text-[16px] text-primary">auto_awesome</span>
+            <span>Mau analisis otomatis? Pakai AI Gemini 🪄</span>
           </button>
         </form>
       </div>

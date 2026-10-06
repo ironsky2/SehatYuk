@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import CalorieAlertBanner from '../components/CalorieAlertBanner';
+import AiCalorieInput from '../components/AiCalorieInput';
 import { addDays, formatDateLabel } from '../utils/dateUtils';
 
 export default function LogMakanScreen() {
@@ -21,6 +22,7 @@ export default function LogMakanScreen() {
   const isOverCalorieLimit = selectedCalories > calorieTarget;
   const isToday = selectedDate === today;
 
+  const [inputMode, setInputMode] = useState('ai'); // 'ai' | 'manual'
   const [activeMealTab, setActiveMealTab] = useState('Buka Puasa');
   const [foodName, setFoodName] = useState('');
   const [caloriesInput, setCaloriesInput] = useState('');
@@ -248,11 +250,39 @@ export default function LogMakanScreen() {
       <section className="bg-surface-container-lowest rounded-2xl p-4 shadow-[0_4px_20px_-2px_rgba(244,63,94,0.06)] border border-outline-variant/30 flex flex-col gap-3.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-[22px]">add_circle</span>
+            <span className="material-symbols-outlined text-primary text-[22px]">restaurant</span>
             <h3 className="font-headline-sm text-base text-on-surface font-bold">
               Catat Makanan Baru
             </h3>
           </div>
+        </div>
+
+        {/* Tab Mode: Hitung AI 🪄 vs Input Manual */}
+        <div className="grid grid-cols-2 p-1 bg-surface-container-low rounded-2xl border border-outline-variant/20">
+          <button
+            type="button"
+            onClick={() => setInputMode('ai')}
+            className={`py-2 px-3 rounded-xl font-label-sm text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              inputMode === 'ai'
+                ? 'bg-primary text-on-primary shadow-sm'
+                : 'text-on-surface-variant hover:text-on-surface'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[16px]">auto_awesome</span>
+            <span>Hitung AI 🪄</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setInputMode('manual')}
+            className={`py-2 px-3 rounded-xl font-label-sm text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              inputMode === 'manual'
+                ? 'bg-surface-container-highest text-on-surface shadow-sm'
+                : 'text-on-surface-variant hover:text-on-surface'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[16px]">edit_note</span>
+            <span>Input Manual</span>
+          </button>
         </div>
 
         {/* Meal Timing Selector (Tabs) */}
@@ -278,126 +308,139 @@ export default function LogMakanScreen() {
           </div>
         </div>
 
-        {/* Input Nama Makanan */}
-        <div className="flex flex-col gap-1.5">
-          <label className="font-label-sm text-xs text-on-surface-variant font-medium">
-            Nama Menu / Hidangan
-          </label>
-          <div className="relative flex items-center">
-            <input
-              className="w-full bg-surface-container-low rounded-xl px-3.5 py-2.5 font-body-md text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 pr-10 placeholder-on-surface-variant/50 border border-outline-variant/20"
-              placeholder="Ketik nama makanan..."
-              type="text"
-              value={foodName}
-              onChange={(e) => setFoodName(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Calorie & Portion Multiplier Grid */}
-        <div className="grid grid-cols-2 gap-3 items-end">
-          {/* Input Kalori */}
-          <div className="flex flex-col gap-1.5">
-            <label className="font-label-sm text-xs text-on-surface-variant font-medium">
-              Estimasi Energi
-            </label>
-            <div className="relative flex items-center">
-              <input
-                className="w-full bg-surface-container-low rounded-xl px-3.5 py-2 font-headline-sm text-base font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 pr-12 border border-outline-variant/20"
-                type="number"
-                min="0"
-                placeholder="0"
-                value={caloriesInput}
-                onChange={(e) => setCaloriesInput(e.target.value)}
-              />
-              <span className="absolute right-3 font-label-sm text-xs text-on-surface-variant font-bold">
-                kkal
-              </span>
+        {/* Tampilan Sesuai Mode */}
+        {inputMode === 'ai' ? (
+          <AiCalorieInput
+            activeMealTab={activeMealTab}
+            selectedDate={selectedDate}
+            onSaveMeal={(mealData) => {
+              addMeal(mealData);
+            }}
+          />
+        ) : (
+          <div className="flex flex-col gap-3.5 animate-in fade-in">
+            {/* Input Nama Makanan */}
+            <div className="flex flex-col gap-1.5">
+              <label className="font-label-sm text-xs text-on-surface-variant font-medium">
+                Nama Menu / Hidangan
+              </label>
+              <div className="relative flex items-center">
+                <input
+                  className="w-full bg-surface-container-low rounded-xl px-3.5 py-2.5 font-body-md text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 pr-10 placeholder-on-surface-variant/50 border border-outline-variant/20"
+                  placeholder="Ketik nama makanan..."
+                  type="text"
+                  value={foodName}
+                  onChange={(e) => setFoodName(e.target.value)}
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Quick Estimation Chips */}
-          <div className="flex flex-col gap-1.5">
-            <span className="font-label-sm text-xs text-on-surface-variant font-medium">
-              Estimasi Cepat
-            </span>
-            <div className="flex gap-1.5">
-              {['150', '320', '500'].map((val) => (
-                <button
-                  key={val}
-                  type="button"
-                  onClick={() => setCaloriesInput(val)}
-                  className={`flex-1 py-2 rounded-xl font-label-sm text-xs font-bold transition-all active:scale-95 ${
-                    caloriesInput === val
-                      ? 'bg-primary-fixed text-on-primary-fixed shadow-xs'
-                      : 'bg-surface-container-low hover:bg-primary-fixed text-on-surface border border-outline-variant/20'
-                  }`}
-                >
-                  {val}
-                </button>
-              ))}
+            {/* Calorie & Portion Multiplier Grid */}
+            <div className="grid grid-cols-2 gap-3 items-end">
+              {/* Input Kalori */}
+              <div className="flex flex-col gap-1.5">
+                <label className="font-label-sm text-xs text-on-surface-variant font-medium">
+                  Estimasi Energi
+                </label>
+                <div className="relative flex items-center">
+                  <input
+                    className="w-full bg-surface-container-low rounded-xl px-3.5 py-2 font-headline-sm text-base font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 pr-12 border border-outline-variant/20"
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={caloriesInput}
+                    onChange={(e) => setCaloriesInput(e.target.value)}
+                  />
+                  <span className="absolute right-3 font-label-sm text-xs text-on-surface-variant font-bold">
+                    kkal
+                  </span>
+                </div>
+              </div>
+
+              {/* Quick Estimation Chips */}
+              <div className="flex flex-col gap-1.5">
+                <span className="font-label-sm text-xs text-on-surface-variant font-medium">
+                  Estimasi Cepat
+                </span>
+                <div className="flex gap-1.5">
+                  {['150', '320', '500'].map((val) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setCaloriesInput(val)}
+                      className={`flex-1 py-2 rounded-xl font-label-sm text-xs font-bold transition-all active:scale-95 ${
+                        caloriesInput === val
+                          ? 'bg-primary-fixed text-on-primary-fixed shadow-xs'
+                          : 'bg-surface-container-low hover:bg-primary-fixed text-on-surface border border-outline-variant/20'
+                      }`}
+                    >
+                      {val}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
-        {/* Pilihan Porsi (Multiplier Chip) */}
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between">
-            <label className="font-label-sm text-xs text-on-surface-variant font-medium">
-              Ukuran Porsi
-            </label>
-            <span className="font-label-sm text-xs text-primary font-bold">
-              {portionName} • {Math.round((Number(caloriesInput) || 0) * portionMultiplier)} kkal
-            </span>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {portions.map((p) => {
-              const isSelected = portionMultiplier === p.mult;
-              return (
-                <button
-                  key={p.mult}
-                  type="button"
-                  onClick={() => {
-                    setPortionMultiplier(p.mult);
-                    setPortionName(p.label);
-                  }}
-                  className={`py-2 px-3 rounded-xl font-label-md text-xs flex flex-col items-center transition-all active:scale-95 ${
-                    isSelected
-                      ? 'bg-primary-container text-on-primary-container shadow-xs font-bold'
-                      : 'bg-surface-container text-on-surface hover:bg-surface-container-high'
-                  }`}
-                >
-                  <span className="font-bold">{p.name}</span>
-                  <span className="font-label-sm text-[10px] opacity-80">{p.mult}x</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+            {/* Pilihan Porsi (Multiplier Chip) */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <label className="font-label-sm text-xs text-on-surface-variant font-medium">
+                  Ukuran Porsi
+                </label>
+                <span className="font-label-sm text-xs text-primary font-bold">
+                  {portionName} • {Math.round((Number(caloriesInput) || 0) * portionMultiplier)} kkal
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {portions.map((p) => {
+                  const isSelected = portionMultiplier === p.mult;
+                  return (
+                    <button
+                      key={p.mult}
+                      type="button"
+                      onClick={() => {
+                        setPortionMultiplier(p.mult);
+                        setPortionName(p.label);
+                      }}
+                      className={`py-2 px-3 rounded-xl font-label-md text-xs flex flex-col items-center transition-all active:scale-95 ${
+                        isSelected
+                          ? 'bg-primary-container text-on-primary-container shadow-xs font-bold'
+                          : 'bg-surface-container text-on-surface hover:bg-surface-container-high'
+                      }`}
+                    >
+                      <span className="font-bold">{p.name}</span>
+                      <span className="font-label-sm text-[10px] opacity-80">{p.mult}x</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-        {/* CTA Simpan */}
-        <button
-          onClick={handleSaveMeal}
-          disabled={saveStatus === 'saving'}
-          className="w-full mt-1 bg-primary hover:bg-primary-container text-on-primary font-label-lg text-sm py-3 rounded-full flex items-center justify-center gap-2 shadow-[0_10px_25px_-4px_rgba(244,63,94,0.22)] active:scale-98 transition-all font-bold"
-        >
-          {saveStatus === 'saving' ? (
-            <>
-              <span className="material-symbols-outlined text-[18px] animate-spin">sync</span>
-              <span>Menyimpan...</span>
-            </>
-          ) : saveStatus === 'saved' ? (
-            <>
-              <span className="material-symbols-outlined text-[18px]">check_circle</span>
-              <span>Berhasil Disimpan!</span>
-            </>
-          ) : (
-            <>
-              <span className="material-symbols-outlined text-[18px]">add</span>
-              <span>Simpan Catatan Makan</span>
-            </>
-          )}
-        </button>
+            {/* CTA Simpan */}
+            <button
+              onClick={handleSaveMeal}
+              disabled={saveStatus === 'saving'}
+              className="w-full mt-1 bg-primary hover:bg-primary-container text-on-primary font-label-lg text-sm py-3 rounded-full flex items-center justify-center gap-2 shadow-[0_10px_25px_-4px_rgba(244,63,94,0.22)] active:scale-98 transition-all font-bold"
+            >
+              {saveStatus === 'saving' ? (
+                <>
+                  <span className="material-symbols-outlined text-[18px] animate-spin">sync</span>
+                  <span>Menyimpan...</span>
+                </>
+              ) : saveStatus === 'saved' ? (
+                <>
+                  <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                  <span>Berhasil Disimpan!</span>
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-[18px]">add</span>
+                  <span>Simpan Catatan Makan</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </section>
 
       {/* Riwayat Makan Header */}
@@ -431,6 +474,12 @@ export default function LogMakanScreen() {
                   <span className="font-label-md text-xs font-bold text-on-surface truncate">
                     {meal.timeCategory}
                   </span>
+                  {meal.analyzedByAi && (
+                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-md bg-secondary-fixed text-on-secondary-fixed text-[9px] font-bold">
+                      <span className="material-symbols-outlined text-[10px]">auto_awesome</span>
+                      AI
+                    </span>
+                  )}
                   {meal.time && (
                     <span className="font-label-sm text-[11px] text-on-surface-variant font-normal">
                       {meal.time}
@@ -444,6 +493,15 @@ export default function LogMakanScreen() {
               <p className="font-body-sm text-xs text-on-surface-variant line-clamp-1">
                 {meal.name}
               </p>
+              {meal.macros && (
+                <div className="flex items-center gap-2 mt-1 font-label-sm text-[10px] text-on-surface-variant">
+                  <span>K: <strong className="text-on-surface">{meal.macros.carbs}g</strong></span>
+                  <span>•</span>
+                  <span>P: <strong className="text-on-surface">{meal.macros.protein}g</strong></span>
+                  <span>•</span>
+                  <span>L: <strong className="text-on-surface">{meal.macros.fat}g</strong></span>
+                </div>
+              )}
               <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-surface-container-low">
                 <span className="font-label-sm text-[10px] px-2 py-0.5 rounded-md bg-surface-container text-on-surface-variant font-medium">
                   {meal.portion || 'Porsi Sedang (1.0x)'}

@@ -25,6 +25,18 @@ export default function ProgressScreen() {
   const [exIntensity, setExIntensity] = useState('Sedang');
   const [exDate, setExDate] = useState(today);
 
+  const openWeightModal = () => {
+    setNewWeight(String(data.profile?.currentWeight ?? ''));
+    setNewWaist(String(data.profile?.waistCircumference ?? ''));
+    setWeightDate(today);
+    setWeightModalOpen(true);
+  };
+
+  const openExerciseModal = () => {
+    setExDate(today);
+    setExerciseModalOpen(true);
+  };
+
 
 
   const hasWeightLogs = Array.isArray(data.weightLogs) && data.weightLogs.length > 0;

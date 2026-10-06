@@ -19,7 +19,8 @@ export default function App() {
     completeOnboarding,
     authUser,
     isAuthLoading,
-    isGuestMode
+    isGuestMode,
+    isSessionActive
   } = useApp();
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
@@ -76,7 +77,7 @@ export default function App() {
 
   // 3. Sudah pernah lewati perkenalan, tetapi sesi login habis / belum login:
   //    Langsung tampilkan HALAMAN AUTENTIKASI tanpa mengulang perkenalan
-  if (!authUser && !isGuestMode) {
+  if (!isSessionActive && !authUser && !isGuestMode) {
     return (
       <OnboardingAuthScreen
         initialMode="auth"

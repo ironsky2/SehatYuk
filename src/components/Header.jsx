@@ -4,7 +4,7 @@ import { getPrayerTimesForDate } from '../utils/prayerTimes';
 import ProfileSettingsModal from './ProfileSettingsModal';
 
 export default function Header() {
-  const { data, isOnline, isSyncing, activeTab, setActiveTab, requestNotificationPermission, showNotification, authUser } = useApp();
+  const { data, isOnline, isSyncing, activeTab, setActiveTab, requestNotificationPermission, showNotification, authUser, handleLogout } = useApp();
   const [notifModalOpen, setNotifModalOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
 
@@ -101,6 +101,16 @@ export default function Header() {
                 className="w-8 h-8 rounded-full object-cover shadow-sm"
                 src={data.profile.avatar || authUser?.user_metadata?.avatar_url || '/avatar.png'}
               />
+            </button>
+
+            {/* Tombol Logout Sesi */}
+            <button
+              onClick={() => handleLogout()}
+              aria-label="Logout"
+              title="Keluar dari Akun (Logout)"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant/80 hover:text-error hover:bg-error/10 active:scale-90 transition-all ml-0.5"
+            >
+              <span className="material-symbols-outlined text-[19px]">logout</span>
             </button>
           </div>
         </div>

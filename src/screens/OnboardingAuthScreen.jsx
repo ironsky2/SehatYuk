@@ -66,7 +66,7 @@ const SLIDES = [
 ];
 
 export default function OnboardingAuthScreen({ initialMode = 'intro', onCompleteIntro }) {
-  const { handleGoogleSignIn, isSupabaseConfigured, showNotification, continueAsGuest } = useApp();
+  const { handleGoogleSignIn, isSupabaseConfigured, showNotification, continueAsGuest, saveSession } = useApp();
 
   const [currentSlide, setCurrentSlide] = useState(0);
   const [showAuthForm, setShowAuthForm] = useState(initialMode === 'auth');
@@ -126,6 +126,9 @@ export default function OnboardingAuthScreen({ initialMode = 'intro', onComplete
         if (error) {
           setErrorMessage(error.message || 'Gagal mendaftar akun baru.');
         } else {
+          if (data?.user) {
+            saveSession?.(data.user, false);
+          }
           setSuccessMessage('Pendaftaran berhasil! Akun Anda telah aktif.');
           showNotification('Selamat Datang!', 'Akun Anda telah berhasil dibuat.');
           onCompleteIntro?.();
@@ -136,6 +139,9 @@ export default function OnboardingAuthScreen({ initialMode = 'intro', onComplete
         if (error) {
           setErrorMessage(error.message || 'Email atau password salah.');
         } else {
+          if (data?.user) {
+            saveSession?.(data.user, false);
+          }
           setSuccessMessage('Login berhasil! Membuka aplikasi...');
           showNotification('Berhasil Masuk', 'Selamat datang kembali di Sehat Yuk!');
           onCompleteIntro?.();

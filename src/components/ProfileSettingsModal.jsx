@@ -466,6 +466,30 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
                   Dapat disesuaikan manual atau mengikuti hasil hitung kalkulator medis di atas.
                 </span>
               </div>
+
+              {/* Status Sesi & Tombol Logout */}
+              <div className="pt-3 pb-1 border-t border-outline-variant/20 flex items-center justify-between">
+                <div className="flex flex-col min-w-0 pr-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[11px] font-bold text-on-surface">Sesi Aktif</span>
+                  </div>
+                  <span className="text-[10px] text-on-surface-variant truncate">
+                    {authUser ? `Cloud: ${authUser.email}` : 'Sesi Lokal (Data tersimpan di HP)'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const ok = await handleSignOut(true);
+                    if (ok) onClose();
+                  }}
+                  className="py-1.5 px-3 rounded-xl border border-error/40 text-error hover:bg-error hover:text-white font-bold text-xs flex items-center gap-1 active:scale-95 transition-all flex-shrink-0"
+                >
+                  <span className="material-symbols-outlined text-[15px]">logout</span>
+                  <span>Keluar</span>
+                </button>
+              </div>
             </form>
           ) : (
             /* TAB 2: Kunci AI & Cloud Settings */

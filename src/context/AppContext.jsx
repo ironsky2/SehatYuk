@@ -17,6 +17,8 @@ import {
 import { localDateStr, startOfWeekStr, formatDateLabel } from '../utils/dateUtils';
 
 const STORAGE_KEY = 'sehat_yuk_app_data_v3';
+export const SESSION_STORAGE_KEY = 'sehat_yuk_auth_session';
+export const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 hari sesi aktif
 
 const defaultState = {
   profile: {
@@ -169,8 +171,31 @@ export function AppProvider({ children }) {
   const [hasAlertedOverLimit, setHasAlertedOverLimit] = useState(false);
   const [authUser, setAuthUser] = useState(null);
   const [isAuthLoading, setIsAuthLoading] = useState(Boolean(isSupabaseConfigured));
+  // Persistent Auth & Session Management (Masa Aktif 30 Hari, Bertahan saat Refresh)
+  const [currentSession, setCurrentSession] = useState(() => {
+    try {
+      const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.expiresAt && Date.now() < parsed.expiresAt) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Gagal membaca session dari storage:', e);
+    }
+    return null;
+  });
+
+  const isSessionActive = Boolean(currentSession && Date.now() < (currentSession.expiresAt || 0));
+
   const [isGuestMode, setIsGuestMode] = useState(() => {
     try {
+      const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.isGuest && Date.now() < parsed.expiresAt) return true;
+      }
       return sessionStorage.getItem('sehat_yuk_guest_session') === 'true';
     } catch {
       return false;
@@ -178,13 +203,37 @@ export function AppProvider({ children }) {
   });
   const isInitialSyncDone = useRef(false);
 
+  // Buat atau perbarui sesi aktif pengguna
+  const saveSession = (userObj, isGuest = false) => {
+    const session = {
+      id: 'sess_' + Date.now(),
+      isGuest,
+      user: {
+        id: userObj?.id || 'local_user',
+        email: userObj?.email || (isGuest ? 'Mode Offline / Lokal' : 'Bunda'),
+        name: userObj?.user_metadata?.full_name || userObj?.name || rawData.profile.name || 'Bunda',
+        avatar: userObj?.user_metadata?.avatar_url || userObj?.avatar || rawData.profile.avatar || '/avatar.png'
+      },
+      createdAt: Date.now(),
+      expiresAt: Date.now() + SESSION_DURATION_MS,
+      lastActive: Date.now()
+    };
+    setCurrentSession(session);
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+      if (isGuest) {
+        sessionStorage.setItem('sehat_yuk_guest_session', 'true');
+      }
+    } catch (e) {
+      console.error('Failed to save session:', e);
+    }
+    return session;
+  };
+
   const continueAsGuest = () => {
     setIsGuestMode(true);
-    try {
-      sessionStorage.setItem('sehat_yuk_guest_session', 'true');
-    } catch (e) {
-      console.warn('SessionStorage error:', e);
-    }
+    saveSession({ name: rawData.profile.name || 'Bunda' }, true);
+    completeOnboarding();
   };
 
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(() => {
@@ -423,6 +472,7 @@ export function AppProvider({ children }) {
           const user = session?.user || null;
           if (user) {
             setAuthUser(user);
+            saveSession(user, false);
             applyAuthProfile(user);
             if (!isInitialSyncDone.current) {
               isInitialSyncDone.current = true;
@@ -442,6 +492,7 @@ export function AppProvider({ children }) {
         setAuthUser(user);
         setIsAuthLoading(false);
         if (user) {
+          saveSession(user, false);
           applyAuthProfile(user);
           if (!isInitialSyncDone.current) {
             isInitialSyncDone.current = true;
@@ -450,7 +501,9 @@ export function AppProvider({ children }) {
         } else if (event === 'SIGNED_OUT') {
           isInitialSyncDone.current = false;
           setIsGuestMode(false);
+          setCurrentSession(null);
           try {
+            localStorage.removeItem(SESSION_STORAGE_KEY);
             sessionStorage.removeItem('sehat_yuk_guest_session');
           } catch {}
           setSyncStatus('idle');
@@ -901,14 +954,20 @@ export function AppProvider({ children }) {
     }
   };
 
-  const handleSignOut = async () => {
+  const handleSignOut = async (confirm = true) => {
+    if (confirm && !window.confirm('Apakah Bunda yakin ingin keluar dari akun? Sesi login akan diakhiri.')) {
+      return false;
+    }
     setIsGuestMode(false);
+    setCurrentSession(null);
     try {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
       sessionStorage.removeItem('sehat_yuk_guest_session');
     } catch {}
     await signOutUser();
     setAuthUser(null);
-    showNotification('Berhasil Keluar', 'Sesi akun telah diakhiri.');
+    showNotification('Berhasil Keluar 🌸', 'Sesi akun telah diakhiri. Sampai jumpa lagi Bunda!');
+    return true;
   };
 
   const toggleFastingActive = (forcedValue) => {
@@ -985,8 +1044,12 @@ export function AppProvider({ children }) {
         hasCompletedOnboarding,
         completeOnboarding,
         resetOnboarding,
+        currentSession,
+        isSessionActive,
+        saveSession,
         handleGoogleSignIn,
         handleSignOut,
+        handleLogout: handleSignOut,
         clearAllData,
         activeTab,
         setActiveTab,

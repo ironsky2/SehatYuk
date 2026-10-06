@@ -7,8 +7,8 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
 export const isSupabaseConfigured = Boolean(
   supabaseUrl &&
   supabaseAnonKey &&
-  !supabaseUrl.includes('your-project-id') &&
-  !supabaseAnonKey.includes('your_supabase_anon_key')
+  !supabaseUrl.includes('https://ckmzckcffdrpmvpwjzcz.supabase.co') &&
+  !supabaseAnonKey.includes('sb_publishable_CBmh-ctif1rfmfoj00mNUg_PQrBGzBC')
 );
 
 // Initialize client with localStorage session persistence

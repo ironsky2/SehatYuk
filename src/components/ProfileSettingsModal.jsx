@@ -417,9 +417,11 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
               </p>
               <button
                 type="button"
-                onClick={() => {
-                  clearAllData();
-                  onClose();
+                onClick={async () => {
+                  if (window.confirm('Hapus seluruh data catatan dan mulai dari awal? Semua riwayat akan dibersihkan tanpa data dummy.')) {
+                    await clearAllData(true);
+                    onClose();
+                  }
                 }}
                 className="w-full py-2 px-3 rounded-xl border border-error text-error hover:bg-error hover:text-on-error font-bold text-xs active:scale-95 transition-all flex items-center justify-center gap-1"
               >

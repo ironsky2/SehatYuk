@@ -136,8 +136,8 @@ BEGIN
     new.id,
     COALESCE(new.raw_user_meta_data->>'full_name', new.email),
     false,
-    '2026-09-23',
-    '2026-10-01'
+    NULL,
+    NULL
   );
   RETURN NEW;
 END;

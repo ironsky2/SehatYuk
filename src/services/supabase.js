@@ -102,21 +102,25 @@ export async function getCurrentUser() {
 // Data Sync Helpers (Protected by RLS)
 // ==========================================
 
+function isValidDateStr(val) {
+  return typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val.trim());
+}
+
 export async function syncUserProfile(profileData) {
   if (!isSupabaseConfigured || !supabase) return null;
   try {
     const user = await getCurrentUser();
     if (!user) return null;
 
-    // Filter fields to match profiles table schema
+    // Filter fields to match profiles table schema safely
     const cleanPayload = {
       id: user.id,
-      name: profileData?.name || null,
+      name: profileData?.name?.trim?.() || null,
       gender: 'female',
       is_nursing: Boolean(profileData?.isNursing),
-      period_start: profileData?.hpht || null,
-      period_end: profileData?.periodEnd || null,
-      daily_water_target: 2000,
+      period_start: isValidDateStr(profileData?.hpht) ? profileData.hpht.trim() : null,
+      period_end: isValidDateStr(profileData?.periodEnd) ? profileData.periodEnd.trim() : null,
+      daily_water_target: Number(profileData?.dailyWaterTarget) || 2000,
       updated_at: new Date().toISOString()
     };
 
@@ -251,3 +255,30 @@ export async function fetchAppState() {
     return null;
   }
 }
+
+/**
+ * Menghapus / mereset data cloud pengguna di Supabase
+ */
+export async function clearCloudUserData() {
+  if (!isSupabaseConfigured || !supabase) return false;
+  try {
+    const user = await getCurrentUser();
+    if (!user) return false;
+
+    await Promise.allSettled([
+      supabase.from('user_state').delete().eq('user_id', user.id),
+      supabase.from('water_logs').delete().eq('user_id', user.id),
+      supabase.from('health_logs').delete().eq('user_id', user.id),
+      supabase.from('profiles').update({
+        period_start: null,
+        period_end: null,
+        updated_at: new Date().toISOString()
+      }).eq('id', user.id)
+    ]);
+    return true;
+  } catch (err) {
+    console.warn('Supabase clear cloud data catch:', err);
+    return false;
+  }
+}
+

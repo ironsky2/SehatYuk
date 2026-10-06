@@ -11,7 +11,8 @@ import {
   syncAppState,
   fetchAppState,
   syncUserProfile,
-  syncWaterLog
+  syncWaterLog,
+  clearCloudUserData
 } from '../services/supabase';
 import { localDateStr, startOfWeekStr, formatDateLabel } from '../utils/dateUtils';
 
@@ -758,29 +759,44 @@ export function AppProvider({ children }) {
     });
   };
 
-  const clearAllData = async () => {
-    if (window.confirm('Apakah Anda yakin ingin menghapus seluruh data catatan dan profil? Seluruh riwayat akan dibersihkan dan dimulai dari awal tanpa data dummy.')) {
-      try {
-        localStorage.removeItem(STORAGE_KEY);
-        const cleanState = {
-          ...defaultState,
-          waterDate: localDateStr(),
-          profile: {
-            ...defaultState.profile,
-            name: authUser?.user_metadata?.full_name || '',
-            avatar: authUser?.user_metadata?.avatar_url || '/avatar.png'
-          }
-        };
-        setData(cleanState);
-        // Sinkronkan ke cloud Supabase jika pengguna sedang terhubung
-        if (authUser && isSupabaseConfigured) {
-          await syncToCloud(cleanState, authUser);
+  const clearAllData = async (skipConfirm = false) => {
+    if (!skipConfirm && !window.confirm('Apakah Anda yakin ingin mengosongkan seluruh data catatan? Seluruh riwayat akan dibersihkan tanpa data dummy.')) {
+      return;
+    }
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      const cleanState = {
+        ...defaultState,
+        waterDate: localDateStr(),
+        meals: [],
+        exercises: [],
+        weightLogs: [],
+        waterGlasses: 0,
+        profile: {
+          ...defaultState.profile,
+          name: authUser?.user_metadata?.full_name || '',
+          avatar: authUser?.user_metadata?.avatar_url || '/avatar.png',
+          age: '',
+          height: '',
+          startWeight: '',
+          currentWeight: '',
+          targetWeight: '',
+          waistCircumference: '',
+          hpht: '',
+          periodEnd: '',
+          isNursing: false
         }
-        showNotification('Data Bersih 🧹', 'Seluruh data catatan dummy telah dihapus. Aplikasi kini bersih untuk data pribadi Anda!');
-      } catch (err) {
-        console.error('Error saat menghapus data:', err);
-        showNotification('Data Dihapus', 'Data lokal berhasil di-reset.');
+      };
+      setData(cleanState);
+      // Hapus & reset data di Cloud Supabase jika pengguna sedang terhubung
+      if (authUser && isSupabaseConfigured) {
+        await clearCloudUserData();
+        await syncAppState(cleanState);
       }
+      showNotification('Data Bersih 🧹', 'Seluruh data catatan dummy telah dihapus. Aplikasi kini bersih untuk data pribadi Anda!');
+    } catch (err) {
+      console.warn('Notice saat membersihkan data:', err);
+      showNotification('Data Dihapus', 'Data lokal berhasil di-reset.');
     }
   };
 

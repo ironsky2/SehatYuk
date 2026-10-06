@@ -246,46 +246,17 @@ export default function FastingScreen() {
           {/* Offline GPS Prayer Times Quick Bar */}
           <div className="bg-surface-container-low p-4 rounded-2xl shadow-sm border border-outline-variant/20 flex flex-col gap-2.5">
             <div className="flex items-center justify-between text-on-surface-variant">
-              <div
-                onClick={() => setCitySelectorOpen(!citySelectorOpen)}
-                className="flex items-center gap-1.5 min-w-0 cursor-pointer hover:text-primary transition-colors"
-              >
+              <div className="flex items-center gap-1.5 min-w-0">
                 <span className="material-symbols-outlined text-[18px] text-primary">my_location</span>
-                <span className="font-label-sm text-xs truncate font-bold text-on-surface underline">
+                <span className="font-label-sm text-xs truncate font-bold text-on-surface">
                   {data.profile?.city || 'Lokasi Otomatis (GPS)'}
                 </span>
-                <span className="material-symbols-outlined text-[14px]">arrow_drop_down</span>
               </div>
-              <span className="px-2 py-0.5 rounded-full font-label-sm text-[10px] bg-secondary-fixed text-on-secondary-fixed font-bold flex items-center gap-1 shadow-xs">
+              <span className="px-2.5 py-0.5 rounded-full font-label-sm text-[10px] bg-secondary-fixed text-on-secondary-fixed font-bold flex items-center gap-1 shadow-xs">
                 <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />
-                GPS Otomatis
+                GPS Otomatis Aktif
               </span>
             </div>
-
-            {/* City Selector Accordion */}
-            {citySelectorOpen && (
-              <div className="bg-surface-container-lowest p-3 rounded-xl border border-outline-variant/30 shadow-sm flex flex-col gap-2 animate-in fade-in">
-                <div className="flex justify-between items-center">
-                  <span className="font-label-sm text-xs font-bold text-on-surface">Pilih Wilayah / Kota:</span>
-                  <button onClick={() => setCitySelectorOpen(false)} className="text-outline text-xs">Tutup</button>
-                </div>
-                <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto pr-1">
-                  {INDONESIAN_CITIES.map((c) => (
-                    <button
-                      key={c.name}
-                      onClick={() => handleCityChange(c)}
-                      className={`text-left text-xs p-1.5 rounded-lg transition-colors ${
-                        data.profile.city === c.name
-                          ? 'bg-primary-fixed text-on-primary-fixed font-bold'
-                          : 'bg-surface-container hover:bg-surface-container-high'
-                      }`}
-                    >
-                      {c.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
             <div className="grid grid-cols-3 gap-2 pt-0.5">
               <div className="bg-surface-container-lowest p-2.5 rounded-xl flex flex-col items-center justify-center text-center shadow-xs border border-outline-variant/20">

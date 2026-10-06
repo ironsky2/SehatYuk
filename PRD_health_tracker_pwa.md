@@ -353,6 +353,35 @@ Semua pertanyaan desain telah diputuskan dan disetujui:
 
 Bagian ini dicatat per tanggal agar progres hari sebelumnya tidak terlewat.
 
+### 6 Oktober 2026 — v1.4 (Penyempurnaan 6 Poin Utama: Sesi Auth, Intro Onboarding, Pengaturan Profil, Puasa Adaptif, GPS Otomatis, & Clean Data)
+
+**Peningkatan & Fitur Baru:**
+- 🔐 **Sesi Autentikasi Persisten**:
+  - Sesi login Google dan email kini memiliki persistensi sesi penuh (`getStoredSession`, `autoRefreshToken: true`), token disimpan di penyimpanan aman lokal dan sesi otomatis dipulihkan saat aplikasi dibuka kembali.
+- 📱 **Halaman Awal Perkenalan Singkat Pasca Instalasi**:
+  - Aplikasi menampilkan slide panduan pengenalan fitur utama saat pertama kali dibuka setelah instalasi PWA. Dilengkapi tombol "Lewati & Masuk" dan "Mulai Gunakan App" langsung ke dashboard tanpa hambatan.
+- 👤 **Pengaturan Profil di dalam Icon Profil**:
+  - Mengklik icon avatar profil di kanan atas header langsung membuka modal pengaturan lengkap (nama, usia, TB, BB awal/sekarang/target, lingkar pinggang, target kalori harian, toggle menyusui, Gemini AI key, dan reset data).
+- 🌙 **Fleksibilitas Puasa (Aktif / Non-Aktif)**:
+  - Tombol saklar puasa di menu Puasa memungkinkan pengguna menyalakan/mematikan mode puasa harian. Tampilan dashboard dan banner adhan beradaptasi secara dinamis antara mode puasa atau diet normal.
+- 📍 **Waktu Adhan, Imsak & Subuh 100% Otomatis dari GPS**:
+  - Perhitungan waktu sholat, imsak, dan buka puasa kini sepenuhnya otomatis mengambil koordinat lokasi perangkat via background Geolocation API tanpa perlu pemilihan kota atau klik tombol manual.
+- 🧹 **Pembersihan Data Menyeluruh & Bebas Data Dummy**:
+  - Tombol "Hapus Semua Data" kini mereset data lokal sekaligus membersihkan data di cloud Supabase (`clearCloudUserData`) tanpa error sintaksis tanggal PostgreSQL.
+  - Tampilan grafik berat badan, lingkar pinggang, dan fase hormon kini menampilkan status kosong/ajakan input riil dan **tidak lagi memunculkan nilai dummy (misal: 65 kg, 84 cm, atau HPHT September 2026)**.
+
+**Status fitur saat ini:**
+
+| Fitur | Status |
+|---|---|
+| F1–F3 Dashboard, Log Makan, IF Timer | ✅ Berjalan (dilengkapi AI Gemini Teks & Foto) |
+| F4 Puasa Senin-Kamis, F5 Fase Hormon | ✅ Berjalan + Toggle Aktif/Non-Aktif + 100% GPS Otomatis |
+| F6 Grafik Berat Badan | ✅ Berjalan + Bebas Data Dummy (Zero-Dummy State) |
+| F7 Olahraga, F8 Tracker Mie | ✅ Berjalan |
+| F9 Notifikasi & Service Worker | ✅ Pengingat in-app, bunyi offline chime, SW background sync & push berjalan |
+| F10 Profil & Pengaturan | ✅ Modal Profil lengkap di dalam Icon Profil Header |
+| F11 Autentikasi & Sesi | ✅ Sesi login persisten + sinkronisasi data 2-arah ke Supabase |
+
 ### 6 Oktober 2026 — v1.3 (AI Calorie Calculator, Quick Profile Modal, & Fasting Toggle)
 
 **Peningkatan & Fitur Baru:**

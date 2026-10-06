@@ -182,10 +182,10 @@ export default function OnboardingAuthScreen({ onComplete }) {
 
         {!showAuthForm ? (
           <button
-            onClick={() => setShowAuthForm(true)}
+            onClick={onComplete}
             className="text-xs font-bold text-on-surface-variant hover:text-primary transition-colors py-1.5 px-3 rounded-full bg-surface-container-high/60"
           >
-            Lewati ➔
+            Lewati & Masuk ➔
           </button>
         ) : (
           <button
@@ -193,7 +193,7 @@ export default function OnboardingAuthScreen({ onComplete }) {
             className="text-xs font-bold text-on-surface-variant hover:text-primary transition-colors py-1.5 px-3 rounded-full bg-surface-container-high/60 flex items-center gap-1"
           >
             <span className="material-symbols-outlined text-[14px]">arrow_back</span>
-            Slide Fitur
+            Slide Panduan
           </button>
         )}
       </header>
@@ -450,13 +450,32 @@ export default function OnboardingAuthScreen({ onComplete }) {
                 </button>
               )}
 
-              <button
-                onClick={handleNextSlide}
-                className="flex-1 py-3.5 px-6 rounded-full bg-primary hover:bg-primary-container text-on-primary font-bold text-xs shadow-md shadow-primary/25 flex items-center justify-center gap-1.5 active:scale-98 transition-all"
-              >
-                <span>{currentSlide === SLIDES.length - 1 ? 'Mulai Sekarang' : 'Lanjut'}</span>
-                <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-              </button>
+              {currentSlide === SLIDES.length - 1 ? (
+                <div className="flex-1 flex gap-2">
+                  <button
+                    onClick={onComplete}
+                    className="flex-1 py-3.5 px-4 rounded-full bg-primary hover:bg-primary-container text-on-primary font-bold text-xs shadow-md shadow-primary/25 flex items-center justify-center gap-1.5 active:scale-98 transition-all"
+                  >
+                    <span>Mulai Gunakan App 🌸</span>
+                    <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                  </button>
+                  <button
+                    onClick={() => setShowAuthForm(true)}
+                    className="py-3.5 px-3 rounded-full bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold active:scale-95 transition-all"
+                    title="Masuk atau Hubungkan Akun"
+                  >
+                    Masuk
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleNextSlide}
+                  className="flex-1 py-3.5 px-6 rounded-full bg-primary hover:bg-primary-container text-on-primary font-bold text-xs shadow-md shadow-primary/25 flex items-center justify-center gap-1.5 active:scale-98 transition-all"
+                >
+                  <span>Lanjut</span>
+                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </button>
+              )}
             </div>
           </>
         ) : (

@@ -76,27 +76,28 @@ export default function ProgressScreen() {
     setSettingsModalOpen(true);
   };
 
-  const startWeight = Number(data.profile.startWeight) || 0;
-  const currentWeight = Number(data.profile.currentWeight) || startWeight;
-  const targetWeight = Number(data.profile.targetWeight) || currentWeight;
-  const lostWeight = Math.max(0, startWeight - currentWeight).toFixed(1);
-  const remainingWeight = Math.max(0, currentWeight - targetWeight).toFixed(1);
+  const hasWeightLogs = Array.isArray(data.weightLogs) && data.weightLogs.length > 0;
+  const startWeight = Number(data.profile?.startWeight) || (hasWeightLogs ? Number(data.weightLogs[0]?.weight) : 0);
+  const currentWeight = Number(data.profile?.currentWeight) || (hasWeightLogs ? Number(data.weightLogs[data.weightLogs.length - 1]?.weight) : startWeight);
+  const targetWeight = Number(data.profile?.targetWeight) || 0;
+  const hasWeightData = currentWeight > 0 || hasWeightLogs;
+
+  const lostWeight = startWeight > 0 && currentWeight > 0 ? Math.max(0, startWeight - currentWeight).toFixed(1) : '0.0';
+  const remainingWeight = currentWeight > 0 && targetWeight > 0 ? Math.max(0, currentWeight - targetWeight).toFixed(1) : '-';
 
   // Progres menuju target total (awal -> target)
-  const totalToLose = startWeight - targetWeight;
-  const monthlyProgressPercent = totalToLose > 0
+  const totalToLose = startWeight > 0 && targetWeight > 0 ? startWeight - targetWeight : 0;
+  const monthlyProgressPercent = totalToLose > 0 && currentWeight > 0
     ? Math.max(0, Math.min(Math.round(((startWeight - currentWeight) / totalToLose) * 100), 100))
     : 0;
 
-  // Dynamic Chart Math for Weight Logs
-  const logs = data.weightLogs && data.weightLogs.length > 0 ? data.weightLogs : [
-    { week: 'Awal', weight: startWeight, waist: data.profile.waistCircumference || 84, date: 'Hari ini' }
-  ];
+  // Dynamic Chart Math for Weight Logs (hanya dari riwayat riil pengguna)
+  const logs = hasWeightLogs ? data.weightLogs : [];
 
   const weights = logs.map((l) => Number(l.weight) || currentWeight);
   const trendDiff = weights.length > 1 ? weights[weights.length - 1] - weights[0] : 0;
-  const minW = Math.min(...weights, targetWeight) - 0.5;
-  const maxW = Math.max(...weights, startWeight) + 0.5;
+  const minW = Math.min(...(weights.length > 0 ? weights : [50]), targetWeight > 0 ? targetWeight : 50) - 0.5;
+  const maxW = Math.max(...(weights.length > 0 ? weights : [60]), startWeight > 0 ? startWeight : 60) + 0.5;
   const rangeW = maxW - minW || 1;
 
   const points = logs.map((l, i) => {
@@ -115,9 +116,10 @@ export default function ProgressScreen() {
     : `${pathD} L 300,70 L 0,70 Z`;
 
   // Dynamic Waist Difference
-  const initialWaist = data.weightLogs?.[0]?.waist || data.profile.waistCircumference || 84;
-  const currentWaist = data.profile.waistCircumference || 84;
-  const waistDiff = (currentWaist - initialWaist).toFixed(1);
+  const initialWaist = Number(data.weightLogs?.[0]?.waist) || Number(data.profile?.waistCircumference) || 0;
+  const currentWaist = Number(data.profile?.waistCircumference) || initialWaist;
+  const hasWaist = currentWaist > 0;
+  const waistDiff = hasWaist && initialWaist > 0 ? (currentWaist - initialWaist).toFixed(1) : '0.0';
 
   // Hari olahraga pada minggu berjalan (Senin-Jumat), berdasarkan tanggal sebenarnya
   const weekStart = startOfWeekStr(parseDateStr(today));
@@ -284,21 +286,21 @@ export default function ProgressScreen() {
           <div className="p-2.5 rounded-xl bg-surface-container-low flex flex-col justify-center border border-outline-variant/20">
             <span className="font-label-sm text-[11px] text-on-surface-variant font-medium">Awal</span>
             <span className="font-headline-sm text-base text-on-surface font-bold mt-0.5">
-              {startWeight.toFixed(1)}
+              {startWeight > 0 ? startWeight.toFixed(1) : '-'}
             </span>
             <span className="font-label-sm text-[10px] text-outline">kg</span>
           </div>
           <div className="p-2.5 rounded-xl bg-primary-fixed flex flex-col justify-center border border-primary/20 shadow-xs">
             <span className="font-label-sm text-[11px] text-on-primary-fixed font-bold">Sekarang</span>
             <span className="font-headline-sm text-base text-primary font-black mt-0.5">
-              {currentWeight.toFixed(1)}
+              {currentWeight > 0 ? currentWeight.toFixed(1) : '-'}
             </span>
             <span className="font-label-sm text-[10px] text-on-primary-fixed-variant font-bold">kg</span>
           </div>
           <div className="p-2.5 rounded-xl bg-surface-container-low flex flex-col justify-center border border-outline-variant/20">
             <span className="font-label-sm text-[11px] text-on-surface-variant font-medium">Target</span>
             <span className="font-headline-sm text-base text-on-surface font-bold mt-0.5">
-              {targetWeight.toFixed(1)}
+              {targetWeight > 0 ? targetWeight.toFixed(1) : '-'}
             </span>
             <span className="font-label-sm text-[10px] text-outline">kg</span>
           </div>
@@ -340,46 +342,56 @@ export default function ProgressScreen() {
               </span>
             )}
           </div>
-          <div className="h-28 w-full bg-surface-container-low rounded-xl p-2.5 flex flex-col justify-end relative overflow-hidden border border-outline-variant/20">
-            <svg className="w-full h-20 overflow-visible" preserveAspectRatio="none" viewBox="0 0 300 70">
-              <defs>
-                <linearGradient id="chartGradient2" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor="#b90538" stopOpacity="0.25" />
-                  <stop offset="100%" stopColor="#b90538" stopOpacity="0.0" />
-                </linearGradient>
-              </defs>
-              <path d={areaD} fill="url(#chartGradient2)" />
-              <path
-                d={pathD}
-                fill="none"
-                stroke="#b90538"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="3"
-              />
-              {points.map((p, idx) => (
-                <circle
-                  key={idx}
-                  cx={p.x}
-                  cy={p.y}
-                  fill={idx === points.length - 1 ? '#dc2c4f' : '#b90538'}
-                  r={idx === points.length - 1 ? 5 : 4}
-                  stroke="#ffffff"
-                  strokeWidth="2"
+          {logs.length > 0 ? (
+            <div className="h-28 w-full bg-surface-container-low rounded-xl p-2.5 flex flex-col justify-end relative overflow-hidden border border-outline-variant/20">
+              <svg className="w-full h-20 overflow-visible" preserveAspectRatio="none" viewBox="0 0 300 70">
+                <defs>
+                  <linearGradient id="chartGradient2" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="#b90538" stopOpacity="0.25" />
+                    <stop offset="100%" stopColor="#b90538" stopOpacity="0.0" />
+                  </linearGradient>
+                </defs>
+                <path d={areaD} fill="url(#chartGradient2)" />
+                <path
+                  d={pathD}
+                  fill="none"
+                  stroke="#b90538"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="3"
                 />
-              ))}
-            </svg>
-            <div className="flex justify-between text-[10px] text-on-surface-variant font-label-sm pt-1">
-              {points.slice(-4).map((p, idx) => (
-                <span
-                  key={idx}
-                  className={idx === points.slice(-4).length - 1 ? 'font-bold text-primary' : ''}
-                >
-                  {p.week}: {p.weight}
-                </span>
-              ))}
+                {points.map((p, idx) => (
+                  <circle
+                    key={idx}
+                    cx={p.x}
+                    cy={p.y}
+                    fill={idx === points.length - 1 ? '#dc2c4f' : '#b90538'}
+                    r={idx === points.length - 1 ? 5 : 4}
+                    stroke="#ffffff"
+                    strokeWidth="2"
+                  />
+                ))}
+              </svg>
+              <div className="flex justify-between text-[10px] text-on-surface-variant font-label-sm pt-1">
+                {points.slice(-4).map((p, idx) => (
+                  <span
+                    key={idx}
+                    className={idx === points.slice(-4).length - 1 ? 'font-bold text-primary' : ''}
+                  >
+                    {p.week}: {p.weight}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="py-6 px-4 rounded-xl bg-surface-container-low/60 border border-dashed border-outline-variant/30 flex flex-col items-center text-center gap-1.5 my-1">
+              <span className="material-symbols-outlined text-outline text-[24px]">monitor_weight</span>
+              <p className="text-xs font-bold text-on-surface">Belum Ada Riwayat Timbangan</p>
+              <p className="text-[11px] text-on-surface-variant max-w-xs">
+                Catat timbangan pertama Anda untuk mulai memantau grafik penurunan berat badan.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Secondary Metric: Lingkar Perut */}
@@ -390,17 +402,27 @@ export default function ProgressScreen() {
             </div>
             <div>
               <p className="font-label-md text-xs text-on-surface font-bold">Lingkar Perut</p>
-              <p className="font-body-sm text-[11px] text-on-surface-variant">Awal {initialWaist} cm</p>
+              <p className="font-body-sm text-[11px] text-on-surface-variant">
+                {hasWaist && initialWaist > 0 ? `Awal ${initialWaist} cm` : 'Belum diisi'}
+              </p>
             </div>
           </div>
           <div className="text-right">
-            <span className="font-headline-sm text-base text-on-surface font-bold">
-              {currentWaist}
-            </span>
-            <span className="font-label-sm text-xs text-on-surface-variant"> cm</span>
-            <span className="block font-label-sm text-xs text-tertiary font-bold">
-              {waistDiff <= 0 ? `${waistDiff} cm` : `+${waistDiff} cm`}
-            </span>
+            {hasWaist ? (
+              <>
+                <span className="font-headline-sm text-base text-on-surface font-bold">
+                  {currentWaist}
+                </span>
+                <span className="font-label-sm text-xs text-on-surface-variant"> cm</span>
+                {initialWaist > 0 && (
+                  <span className="block font-label-sm text-xs text-tertiary font-bold">
+                    {Number(waistDiff) <= 0 ? `${waistDiff} cm` : `+${waistDiff} cm`}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="font-label-sm text-xs text-outline font-semibold">-</span>
+            )}
           </div>
         </div>
 
@@ -628,10 +650,12 @@ export default function ProgressScreen() {
           </div>
           <div className="flex flex-col min-w-0">
             <h4 className="font-label-lg text-sm text-on-surface font-bold truncate">
-              {data.profile.name}
+              {data.profile?.name || authUser?.user_metadata?.full_name || 'Bunda'}
             </h4>
             <span className="font-body-sm text-xs text-on-surface-variant">
-              {data.profile.age} tahun • {data.profile.height} cm • {currentWeight.toFixed(1)} kg
+              {data.profile?.age ? `${data.profile.age} tahun • ` : ''}
+              {data.profile?.height ? `${data.profile.height} cm • ` : ''}
+              {currentWeight > 0 ? `${currentWeight.toFixed(1)} kg` : 'Belum isi berat badan'}
             </span>
           </div>
         </div>

@@ -52,8 +52,8 @@ export default function CycleScreen() {
   // Current month days
   for (let d = 1; d <= daysInMonth; d++) {
     const cellDate = new Date(displayYear, displayMonth, d);
-    const cycleDay = getCycleDayForDate(cellDate, data.profile.hpht, data.profile.cycleLength);
-    const phase = getPhaseForCycleDay(cycleDay);
+    const cycleDay = data.profile?.hpht ? getCycleDayForDate(cellDate, data.profile.hpht, data.profile.cycleLength) : null;
+    const phase = cycleDay ? getPhaseForCycleDay(cycleDay) : null;
     const isToday =
       d === today.getDate() &&
       displayMonth === today.getMonth() &&
@@ -96,48 +96,77 @@ export default function CycleScreen() {
             </p>
           </div>
         </div>
-        <span className="font-label-sm text-xs px-2.5 py-1 rounded-full bg-surface text-tertiary font-bold shadow-xs">
-          Hari ke-{cycleInfo.currentDay}
-        </span>
+        {data.profile?.hpht ? (
+          <span className="font-label-sm text-xs px-2.5 py-1 rounded-full bg-surface text-tertiary font-bold shadow-xs">
+            Hari ke-{cycleInfo.currentDay}
+          </span>
+        ) : (
+          <button
+            onClick={() => setHphtModalOpen(true)}
+            className="font-label-sm text-xs px-3 py-1 rounded-full bg-primary text-on-primary font-bold shadow-xs active:scale-95 transition-all"
+          >
+            + Catat HPHT
+          </button>
+        )}
       </div>
 
-      {/* Primary Card: Fase Hari Ini & Interactive Cycle Bar */}
-      <div className="relative overflow-hidden bg-surface-container-lowest rounded-2xl p-4 shadow-[0_4px_20px_-2px_rgba(244,63,94,0.06)] border border-outline-variant/30">
-        <div className="absolute -right-10 -top-10 w-32 h-32 rounded-full bg-tertiary-fixed/20 blur-2xl pointer-events-none" />
-        <div className="absolute -left-10 -bottom-10 w-32 h-32 rounded-full bg-secondary-fixed/30 blur-2xl pointer-events-none" />
-        <div className="relative z-10 flex flex-col gap-3">
-          {/* Title & Status Badge */}
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-tertiary-fixed flex items-center justify-center text-on-tertiary-fixed shadow-xs">
-                <span className="material-symbols-outlined text-[22px]">
-                  {cycleInfo.phase.icon}
-                </span>
-              </div>
-              <div>
-                <h3 className="font-headline-md text-base text-on-surface font-extrabold">
-                  Fase {cycleInfo.phase.name}
-                </h3>
-                <span className="font-label-sm text-xs text-tertiary font-semibold">
-                  Hari ke-{cycleInfo.currentDay} dari Siklus {data.profile.cycleLength} Hari
-                </span>
-              </div>
-            </div>
-            <span className="px-2.5 py-1 rounded-full bg-tertiary-fixed/40 text-on-tertiary-fixed font-label-sm text-xs font-bold">
-              {cycleInfo.phase.badge}
-            </span>
+      {/* Primary Card: Fase Hari Ini atau Ajakan Catat HPHT */}
+      {!data.profile?.hpht ? (
+        <div className="bg-surface-container-lowest rounded-2xl p-5 shadow-sm border border-outline-variant/30 flex flex-col items-center text-center gap-2.5">
+          <div className="w-12 h-12 rounded-full bg-primary-fixed/50 flex items-center justify-center text-primary">
+            <span className="material-symbols-outlined text-[26px]">calendar_month</span>
           </div>
+          <div>
+            <h3 className="font-headline-sm text-sm font-bold text-on-surface">Belum Mencatat Tanggal Haid (HPHT)</h3>
+            <p className="font-body-sm text-xs text-on-surface-variant max-w-xs mt-0.5 leading-relaxed">
+              Catat hari pertama haid terakhir Anda untuk mendapatkan kalkulasi fase hormon dan panduan nutrisi harian yang akurat.
+            </p>
+          </div>
+          <button
+            onClick={() => setHphtModalOpen(true)}
+            className="mt-1 py-2 px-4 rounded-full bg-primary text-on-primary font-bold text-xs shadow-xs active:scale-95 transition-all flex items-center gap-1.5"
+          >
+            <span className="material-symbols-outlined text-[16px]">add_circle</span>
+            <span>Catat Hari Pertama Haid</span>
+          </button>
+        </div>
+      ) : (
+        <div className="relative overflow-hidden bg-surface-container-lowest rounded-2xl p-4 shadow-[0_4px_20px_-2px_rgba(244,63,94,0.06)] border border-outline-variant/30">
+          <div className="absolute -right-10 -top-10 w-32 h-32 rounded-full bg-tertiary-fixed/20 blur-2xl pointer-events-none" />
+          <div className="absolute -left-10 -bottom-10 w-32 h-32 rounded-full bg-secondary-fixed/30 blur-2xl pointer-events-none" />
+          <div className="relative z-10 flex flex-col gap-3">
+            {/* Title & Status Badge */}
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-tertiary-fixed flex items-center justify-center text-on-tertiary-fixed shadow-xs">
+                  <span className="material-symbols-outlined text-[22px]">
+                    {cycleInfo.phase.icon}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="font-headline-md text-base text-on-surface font-extrabold">
+                    Fase {cycleInfo.phase.name}
+                  </h3>
+                  <span className="font-label-sm text-xs text-tertiary font-semibold">
+                    Hari ke-{cycleInfo.currentDay} dari Siklus {data.profile?.cycleLength || 28} Hari
+                  </span>
+                </div>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-tertiary-fixed/40 text-on-tertiary-fixed font-label-sm text-xs font-bold">
+                {cycleInfo.phase.badge}
+              </span>
+            </div>
 
-          {/* Explanatory Text */}
-          <p className="font-body-md text-xs text-on-surface-variant leading-relaxed">
-            {cycleInfo.phase.tips}
-          </p>
+            {/* Explanatory Text */}
+            <p className="font-body-md text-xs text-on-surface-variant leading-relaxed">
+              {cycleInfo.phase.tips}
+            </p>
 
-          {/* 28-Day Interactive Cycle Bar */}
-          <div className="mt-1 flex flex-col gap-1.5">
-            <div className="flex justify-between items-center font-label-sm text-[11px] text-on-surface-variant font-medium">
-              <span>Hari 1 (Haid)</span>
-              <span className="font-bold text-primary">
+            {/* 28-Day Interactive Cycle Bar */}
+            <div className="mt-1 flex flex-col gap-1.5">
+              <div className="flex justify-between items-center font-label-sm text-[11px] text-on-surface-variant font-medium">
+                <span>Hari 1 (Haid)</span>
+                <span className="font-bold text-primary">
                 Hari {cycleInfo.currentDay} (Saat Ini)
               </span>
               <span>Hari {data.profile.cycleLength}</span>
@@ -153,7 +182,7 @@ export default function CycleScreen() {
               {/* Pin */}
               <div
                 className="absolute top-0 bottom-0 w-2.5 bg-on-surface rounded-full shadow-md transform -translate-x-1/2 ring-2 ring-surface"
-                style={{ left: `${(cycleInfo.currentDay / data.profile.cycleLength) * 100}%` }}
+                style={{ left: `${(cycleInfo.currentDay / (data.profile?.cycleLength || 28)) * 100}%` }}
               />
             </div>
 
@@ -164,6 +193,7 @@ export default function CycleScreen() {
           </div>
         </div>
       </div>
+    )}
 
       {/* 3 Pilar Panduan Kesehatan Postpartum & Fase Siklus */}
       <div className="flex flex-col gap-2.5">

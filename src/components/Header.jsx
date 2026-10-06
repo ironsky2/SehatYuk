@@ -143,16 +143,29 @@ export default function Header() {
             </div>
 
             <div className="flex flex-col gap-2 text-xs">
-              <div className="p-3 rounded-xl bg-surface-container-low flex items-start gap-2.5">
-                <span className="material-symbols-outlined text-primary text-[18px] mt-0.5">wb_twilight</span>
-                <div className="flex-1">
-                  <div className="flex justify-between items-center">
-                    <strong className="text-on-surface">Sahur Puasa Sunnah</strong>
-                    <span className="text-[10px] text-outline font-medium">{prayer.imsak} WIB</span>
+              {data.isFastingActive !== false ? (
+                <div className="p-3 rounded-xl bg-surface-container-low flex items-start gap-2.5">
+                  <span className="material-symbols-outlined text-primary text-[18px] mt-0.5">wb_twilight</span>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-center">
+                      <strong className="text-on-surface">Sahur Puasa Sunnah</strong>
+                      <span className="text-[10px] text-outline font-medium">{prayer.imsak} WIB</span>
+                    </div>
+                    <p className="text-on-surface-variant mt-0.5">"Sahur! Bangun sekarang ya Bunda 🌙 Minum 2 gelas air hangat."</p>
                   </div>
-                  <p className="text-on-surface-variant mt-0.5">"Sahur! Bangun sekarang ya Bunda 🌙 Minum 2 gelas air hangat."</p>
                 </div>
-              </div>
+              ) : (
+                <div className="p-3 rounded-xl bg-surface-container-low flex items-start gap-2.5">
+                  <span className="material-symbols-outlined text-secondary text-[18px] mt-0.5">restaurant</span>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-center">
+                      <strong className="text-on-surface">Jadwal Diet Normal</strong>
+                      <span className="text-[10px] text-tertiary font-bold">Puasa Non-Aktif</span>
+                    </div>
+                    <p className="text-on-surface-variant mt-0.5">"Hari ini mode diet normal. Nikmati sarapan seimbang sesuai target kalori 🌸"</p>
+                  </div>
+                </div>
+              )}
 
               <div className="p-3 rounded-xl bg-surface-container-low flex items-start gap-2.5">
                 <span className="material-symbols-outlined text-secondary text-[18px] mt-0.5">schedule</span>
@@ -169,10 +182,16 @@ export default function Header() {
                 <span className="material-symbols-outlined text-tertiary text-[18px] mt-0.5">dinner_dining</span>
                 <div className="flex-1">
                   <div className="flex justify-between items-center">
-                    <strong className="text-on-surface">Waktu Maghrib (Buka Puasa)</strong>
+                    <strong className="text-on-surface">
+                      {data.isFastingActive !== false ? 'Waktu Maghrib (Buka Puasa)' : 'Waktu Maghrib & Makan Malam'}
+                    </strong>
                     <span className="text-[10px] text-outline font-medium">{prayer.maghrib} WIB</span>
                   </div>
-                  <p className="text-on-surface-variant mt-0.5">"Alhamdulillah, waktunya berbuka! Awali dengan 3 butir kurma & air putih 🌸"</p>
+                  <p className="text-on-surface-variant mt-0.5">
+                    {data.isFastingActive !== false
+                      ? '"Alhamdulillah, waktunya berbuka! Awali dengan 3 butir kurma & air putih 🌸"'
+                      : '"Waktu sholat Maghrib dan makan malam sehat berprotein tinggi 🥗"'}
+                  </p>
                 </div>
               </div>
 

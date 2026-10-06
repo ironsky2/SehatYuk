@@ -40,9 +40,8 @@ export default function App() {
     }
   };
 
-  // Show intro slides & authentication screen on first visit
-  // (harus setelah semua hook agar urutan hook konsisten di setiap render)
-  if (!hasCompletedOnboarding && !authUser) {
+  // Tampilkan perkenalan singkat aplikasi saat pertama kali buka setelah instalasi
+  if (!hasCompletedOnboarding) {
     return <OnboardingAuthScreen onComplete={completeOnboarding} />;
   }
 

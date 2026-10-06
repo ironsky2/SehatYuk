@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import GeminiKeyModal from './GeminiKeyModal';
 import { hasGeminiApiKey } from '../services/geminiService';
+import { calculateNutritionMetrics } from '../utils/nutritionCalculator';
 
 export default function ProfileSettingsModal({ isOpen, onClose }) {
   const {
@@ -17,9 +18,12 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
     lastSyncedAt,
     triggerManualSync,
     isSyncing,
-    showNotification
+    showNotification,
+    exportData,
+    importData
   } = useApp();
 
+  const fileInputRef = useRef(null);
   const [activeTab, setActiveTab] = useState('profil'); // 'profil' | 'akun'
   const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
   const [isSavedToast, setIsSavedToast] = useState(false);
@@ -28,10 +32,11 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [height, setHeight] = useState('');
+  const [startWeight, setStartWeight] = useState('');
   const [currentWeight, setCurrentWeight] = useState('');
   const [targetWeight, setTargetWeight] = useState('');
   const [waist, setWaist] = useState('');
-  const [dailyCalorieTarget, setDailyCalorieTarget] = useState(1500);
+  const [dailyCalorieTarget, setDailyCalorieTarget] = useState(1400);
   const [isNursing, setIsNursing] = useState(false);
 
   useEffect(() => {
@@ -39,37 +44,68 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
       setName(data.profile.name || authUser?.user_metadata?.full_name || '');
       setAge(data.profile.age ? String(data.profile.age) : '');
       setHeight(data.profile.height ? String(data.profile.height) : '');
+      setStartWeight(data.profile.startWeight ? String(data.profile.startWeight) : '');
       setCurrentWeight(data.profile.currentWeight ? String(data.profile.currentWeight) : '');
       setTargetWeight(data.profile.targetWeight ? String(data.profile.targetWeight) : '');
       setWaist(data.profile.waistCircumference ? String(data.profile.waistCircumference) : '');
-      setDailyCalorieTarget(data.profile.dailyCalorieTarget || 1500);
+      setDailyCalorieTarget(data.profile.dailyCalorieTarget || 1400);
       setIsNursing(Boolean(data.profile.isNursing));
       setIsSavedToast(false);
     }
   }, [isOpen, data.profile, authUser]);
 
+  // Kalkulasi Kalori Ilmiah & Terpercaya (Mifflin-St Jeor)
+  const metrics = useMemo(() => {
+    return calculateNutritionMetrics({
+      age,
+      height,
+      currentWeight,
+      startWeight,
+      targetWeight,
+      waistCircumference: waist,
+      isNursing
+    });
+  }, [age, height, currentWeight, startWeight, targetWeight, waist, isNursing]);
+
   if (!isOpen) return null;
+
+  const handleApplyRecommendedCalories = () => {
+    if (metrics.isValid) {
+      setDailyCalorieTarget(metrics.recommendedCalories);
+      showNotification(
+        'Target Diterapkan 🎯',
+        `Target kalori harian disetel ke ${metrics.recommendedCalories} kkal sesuai formula medis Mifflin-St Jeor.`
+      );
+    }
+  };
 
   const handleSaveProfile = (e) => {
     e.preventDefault();
+    const startWNum = Number(startWeight) || null;
+    const currentWNum = Number(currentWeight) || null;
+    const targetWNum = Number(targetWeight) || null;
+    const waistNum = Number(waist) || null;
+
     const updatedFields = {
       name: name.trim(),
       nameCustom: Boolean(name.trim()),
       age: Number(age) || null,
       height: Number(height) || null,
-      targetWeight: Number(targetWeight) || null,
-      waistCircumference: Number(waist) || null,
-      dailyCalorieTarget: Number(dailyCalorieTarget) || 1500,
+      startWeight: startWNum || currentWNum || null,
+      targetWeight: targetWNum,
+      waistCircumference: waistNum,
+      dailyCalorieTarget: Number(dailyCalorieTarget) || metrics.recommendedCalories || 1400,
+      bmr: metrics.bmr || null,
+      tdee: metrics.tdee || null,
       isNursing
     };
 
-    const newWeightNum = Number(currentWeight);
-    if (newWeightNum > 0 && newWeightNum !== Number(data.profile.currentWeight)) {
-      updatedFields.currentWeight = newWeightNum;
-      if (!data.profile.startWeight) {
-        updatedFields.startWeight = newWeightNum;
+    if (currentWNum > 0 && currentWNum !== Number(data.profile.currentWeight)) {
+      updatedFields.currentWeight = currentWNum;
+      if (!updatedFields.startWeight && !data.profile.startWeight) {
+        updatedFields.startWeight = currentWNum;
       }
-      addWeightLog(newWeightNum, Number(waist) || null, today);
+      addWeightLog(currentWNum, waistNum, today);
     }
 
     updateProfile(updatedFields);
@@ -78,7 +114,21 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
     setTimeout(() => {
       setIsSavedToast(false);
       onClose();
-    }, 900);
+    }, 700);
+  };
+
+  const handleFileImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+      if (importData(json)) {
+        showNotification('Data Dipulihkan ✅', 'Cadangan data berhasil dimuat ke aplikasi.');
+      }
+    } catch {
+      alert('File backup JSON tidak valid.');
+    }
   };
 
   const keyConfigured = hasGeminiApiKey();
@@ -105,7 +155,7 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
             </div>
             <div>
               <h3 className="font-headline-sm text-base font-bold text-on-surface">
-                {name || data.profile.name || 'Profil & Pengaturan'}
+                {name || data.profile.name || 'Profil & Target Kalori'}
               </h3>
               <p className="font-body-sm text-xs text-on-surface-variant">
                 {authUser ? authUser.email : 'Mode Offline / Tamu'}
@@ -149,7 +199,7 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
           </button>
         </div>
 
-        {/* Tab 1: Form Profil Diri */}
+        {/* Tab 1: Form Profil Diri & Kalkulator Kalori */}
         {activeTab === 'profil' && (
           <form onSubmit={handleSaveProfile} className="flex flex-col gap-3.5">
             {/* Nama */}
@@ -161,7 +211,7 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Masukkan nama Anda..."
+                placeholder="Masukkan nama Bunda..."
                 className="w-full bg-surface-container-low rounded-xl px-3.5 py-2 font-body-md text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 border border-outline-variant/20"
               />
             </div>
@@ -199,10 +249,26 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
               </div>
             </div>
 
-            {/* Berat Badan Sekarang & Target */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* BB Awal, BB Sekarang, dan Target BB */}
+            <div className="grid grid-cols-3 gap-2">
               <div className="flex flex-col gap-1">
-                <label className="font-label-sm text-xs text-on-surface-variant font-medium">
+                <label className="font-label-sm text-[11px] text-on-surface-variant font-medium">
+                  BB Awal (kg)
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="30"
+                  max="200"
+                  value={startWeight}
+                  onChange={(e) => setStartWeight(e.target.value)}
+                  placeholder="65"
+                  className="w-full bg-surface-container-low rounded-xl px-2.5 py-2 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 border border-outline-variant/20 font-semibold"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="font-label-sm text-[11px] text-on-surface-variant font-medium">
                   BB Sekarang (kg)
                 </label>
                 <input
@@ -212,13 +278,13 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
                   max="200"
                   value={currentWeight}
                   onChange={(e) => setCurrentWeight(e.target.value)}
-                  placeholder="Contoh: 60"
-                  className="w-full bg-surface-container-low rounded-xl px-3.5 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 border border-outline-variant/20 font-bold"
+                  placeholder="60"
+                  className="w-full bg-surface-container-low rounded-xl px-2.5 py-2 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 border border-outline-variant/20 font-bold"
                 />
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="font-label-sm text-xs text-on-surface-variant font-medium">
+                <label className="font-label-sm text-[11px] text-primary font-bold">
                   Target BB (kg)
                 </label>
                 <input
@@ -228,14 +294,14 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
                   max="200"
                   value={targetWeight}
                   onChange={(e) => setTargetWeight(e.target.value)}
-                  placeholder="Contoh: 54"
-                  className="w-full bg-surface-container-low rounded-xl px-3.5 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 border border-outline-variant/20 font-bold text-primary"
+                  placeholder="54"
+                  className="w-full bg-surface-container-low rounded-xl px-2.5 py-2 text-xs text-primary focus:outline-none focus:ring-2 focus:ring-primary/40 border border-primary/30 font-bold"
                 />
               </div>
             </div>
 
-            {/* Lingkar Pinggang & Target Kalori */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Lingkar Pinggang & Status Menyusui */}
+            <div className="grid grid-cols-2 gap-3 items-center">
               <div className="flex flex-col gap-1">
                 <label className="font-label-sm text-xs text-on-surface-variant font-medium">
                   Lingkar Pinggang (cm)
@@ -250,47 +316,120 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
                 />
               </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="font-label-sm text-xs text-on-surface-variant font-medium">
-                  Target Kalori (kkal)
-                </label>
-                <input
-                  type="number"
-                  step="50"
-                  value={dailyCalorieTarget}
-                  onChange={(e) => setDailyCalorieTarget(e.target.value)}
-                  placeholder="1500"
-                  className="w-full bg-surface-container-low rounded-xl px-3.5 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 border border-outline-variant/20 font-bold"
-                />
+              {/* Status Menyusui Toggle */}
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-surface-container-low border border-outline-variant/20">
+                <div className="min-w-0 pr-1">
+                  <span className="font-label-sm text-xs font-bold text-on-surface block truncate">
+                    Menyusui?
+                  </span>
+                  <span className="font-body-sm text-[10px] text-on-surface-variant block truncate">
+                    +350 kkal laktasi
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsNursing(!isNursing)}
+                  className={`w-10 h-5 rounded-full transition-colors relative flex items-center p-0.5 flex-shrink-0 ${
+                    isNursing ? 'bg-primary' : 'bg-surface-container-high'
+                  }`}
+                >
+                  <span
+                    className={`w-4 h-4 rounded-full bg-white shadow-xs transition-transform transform ${
+                      isNursing ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
               </div>
             </div>
 
-            {/* Status Menyusui Toggle */}
-            <div className="flex items-center justify-between p-3 rounded-2xl bg-surface-container-low border border-outline-variant/20">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[20px] text-primary">child_care</span>
-                <div>
-                  <span className="font-label-sm text-xs font-bold text-on-surface block">
-                    Sedang Menyusui?
-                  </span>
-                  <span className="font-body-sm text-[11px] text-on-surface-variant">
-                    Menyesuaikan kebutuhan hidrasi harian
-                  </span>
+            {/* KARTU KALKULATOR KALORI MEDIS (Mifflin-St Jeor) */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-rose-50/70 to-pink-50/50 border border-rose-200/60 shadow-xs flex flex-col gap-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-primary font-bold text-xs">
+                  <span className="material-symbols-outlined text-[18px]">calculate</span>
+                  <span>Kalkulator Kalori Medis</span>
                 </div>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
+                  Mifflin-St Jeor
+                </span>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsNursing(!isNursing)}
-                className={`w-12 h-6 rounded-full transition-colors relative flex items-center p-0.5 ${
-                  isNursing ? 'bg-primary' : 'bg-surface-container-high'
-                }`}
-              >
-                <span
-                  className={`w-5 h-5 rounded-full bg-white shadow-xs transition-transform transform ${
-                    isNursing ? 'translate-x-6' : 'translate-x-0'
-                  }`}
-                />
-              </button>
+
+              {metrics.isValid ? (
+                <>
+                  {/* Status BMI & Lingkar Pinggang */}
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-surface-container-lowest text-on-surface border border-outline-variant/30">
+                      BMI: {metrics.bmi} ({metrics.bmiCategory})
+                    </span>
+                    {metrics.waistStatus && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-surface-container-lowest text-on-surface border border-outline-variant/30">
+                        Pinggang: {metrics.waistStatus}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* BMR, TDEE, & Rekomendasi */}
+                  <div className="grid grid-cols-3 gap-2 text-center p-2 rounded-xl bg-surface-container-lowest/80 border border-rose-100">
+                    <div>
+                      <span className="text-[10px] text-on-surface-variant block">BMR Basal</span>
+                      <strong className="text-xs text-on-surface">{metrics.bmr} kkal</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-on-surface-variant block">TDEE Aktif</span>
+                      <strong className="text-xs text-on-surface">{metrics.tdee} kkal</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-primary block font-bold">Rekomendasi</span>
+                      <strong className="text-xs text-primary font-black">{metrics.recommendedCalories} kkal</strong>
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-on-surface-variant leading-tight italic">
+                    {metrics.description}
+                  </p>
+
+                  {/* Tombol Terapkan */}
+                  {Number(dailyCalorieTarget) !== metrics.recommendedCalories && (
+                    <button
+                      type="button"
+                      onClick={handleApplyRecommendedCalories}
+                      className="w-full py-1.5 px-3 rounded-xl bg-primary-fixed hover:bg-primary-fixed-dim text-on-primary-fixed font-bold text-[11px] flex items-center justify-center gap-1 active:scale-95 transition-all shadow-2xs"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">auto_fix_high</span>
+                      <span>Terapkan Rekomendasi ({metrics.recommendedCalories} kkal)</span>
+                    </button>
+                  )}
+                </>
+              ) : (
+                <p className="text-[11px] text-on-surface-variant leading-tight">
+                  Lengkapi usia, tinggi badan, dan berat badan di atas untuk mendapatkan estimasi BMR, TDEE, dan target kalori medis otomatis.
+                </p>
+              )}
+            </div>
+
+            {/* Target Kalori Harian (Input Aktif) */}
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between">
+                <label className="font-label-sm text-xs text-on-surface-variant font-medium">
+                  Target Kalori Harian Anda (kkal/hari)
+                </label>
+                <span className="text-[11px] text-primary font-bold">
+                  {dailyCalorieTarget} kkal
+                </span>
+              </div>
+              <input
+                type="number"
+                step="25"
+                min="1000"
+                max="3500"
+                value={dailyCalorieTarget}
+                onChange={(e) => setDailyCalorieTarget(e.target.value)}
+                placeholder="1400"
+                className="w-full bg-surface-container-low rounded-xl px-3.5 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 border border-outline-variant/20 font-bold"
+              />
+              <span className="text-[10px] text-on-surface-variant">
+                Bunda dapat menggunakan rekomendasi formula medis di atas atau mengubahnya sesuai kebutuhan.
+              </span>
             </div>
 
             {/* Tombol Simpan Profil */}
@@ -300,51 +439,49 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
             >
               {isSavedToast ? (
                 <>
-                  <span className="material-symbols-outlined text-[16px]">check</span>
+                  <span className="material-symbols-outlined text-[16px]">check_circle</span>
                   <span>Tersimpan!</span>
                 </>
               ) : (
                 <>
                   <span className="material-symbols-outlined text-[16px]">save</span>
-                  <span>Simpan Perubahan Profil</span>
+                  <span>Simpan Profil & Target</span>
                 </>
               )}
             </button>
           </form>
         )}
 
-        {/* Tab 2: Kunci AI, Cloud & Hapus Data */}
+        {/* Tab 2: Kunci AI, Cloud & Cadangan Data */}
         {activeTab === 'akun' && (
           <div className="flex flex-col gap-3.5">
-            {/* Kunci Google Gemini AI */}
+            {/* Konfigurasi Gemini API Key */}
             <div className="p-3.5 rounded-2xl bg-surface-container-low border border-outline-variant/20 flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary text-[20px]">auto_awesome</span>
+                  <span className="material-symbols-outlined text-primary text-[20px]">smart_toy</span>
                   <span className="font-label-sm text-xs font-bold text-on-surface">
-                    Google Gemini AI Key
+                    Kunci Google Gemini AI
                   </span>
                 </div>
                 <span
                   className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    keyConfigured
-                      ? 'bg-secondary-fixed text-on-secondary-fixed'
-                      : 'bg-error-container text-on-error-container'
+                    keyConfigured ? 'bg-secondary/15 text-secondary' : 'bg-outline-variant/30 text-outline'
                   }`}
                 >
-                  {keyConfigured ? 'Aktif' : 'Belum Terpasang'}
+                  {keyConfigured ? 'Aktif' : 'Belum Ada'}
                 </span>
               </div>
               <p className="font-body-sm text-[11px] text-on-surface-variant leading-snug">
-                Digunakan untuk menghitung kalori makanan secara akurat via teks maupun foto kamera.
+                Digunakan untuk menghitung kalori otomatis via AI teks dan foto makanan tanpa batas.
               </p>
               <button
                 type="button"
                 onClick={() => setIsKeyModalOpen(true)}
-                className="w-full py-2 rounded-xl bg-surface-container hover:bg-surface-container-high border border-outline-variant/30 text-xs font-bold text-on-surface flex items-center justify-center gap-1.5 active:scale-95 transition-all mt-0.5"
+                className="w-full py-2 px-3 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all"
               >
-                <span className="material-symbols-outlined text-[15px] text-primary">key</span>
-                <span>{keyConfigured ? 'Ubah / Uji Kunci Gemini' : 'Pasang Kunci Gemini Gratis'}</span>
+                <span className="material-symbols-outlined text-[16px]">key</span>
+                <span>{keyConfigured ? 'Kelola Kunci Gemini' : 'Pasang Kunci Gemini Gratis'}</span>
               </button>
             </div>
 
@@ -407,6 +544,44 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
                   </button>
                 </div>
               )}
+            </div>
+
+            {/* Cadangan & Pemulihan Data (Export / Import JSON) */}
+            <div className="p-3.5 rounded-2xl bg-surface-container-low border border-outline-variant/20 flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-[20px]">backup</span>
+                <span className="font-label-sm text-xs font-bold text-on-surface">
+                  Cadangan & Pemulihan JSON
+                </span>
+              </div>
+              <p className="font-body-sm text-[11px] text-on-surface-variant leading-snug">
+                Unduh salinan data kesehatan Anda ke file JSON atau pulihkan data saat berganti perangkat.
+              </p>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={exportData}
+                  className="py-2 px-3 rounded-xl bg-surface-container text-on-surface font-label-sm text-xs font-bold flex items-center justify-center gap-1 hover:bg-surface-container-high active:scale-95 transition-all"
+                >
+                  <span className="material-symbols-outlined text-[16px]">download</span>
+                  <span>Export Backup</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="py-2 px-3 rounded-xl bg-primary-fixed text-on-primary-fixed font-label-sm text-xs font-bold flex items-center justify-center gap-1 hover:bg-primary-fixed-dim active:scale-95 transition-all"
+                >
+                  <span className="material-symbols-outlined text-[16px]">upload</span>
+                  <span>Import Backup</span>
+                </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileImport}
+                  accept=".json"
+                  className="hidden"
+                />
+              </div>
             </div>
 
             {/* Hapus Semua Data (Clean Reset) */}

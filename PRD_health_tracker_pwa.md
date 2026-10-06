@@ -353,6 +353,26 @@ Semua pertanyaan desain telah diputuskan dan disetujui:
 
 Bagian ini dicatat per tanggal agar progres hari sebelumnya tidak terlewat.
 
+### 6 Oktober 2026 — v1.6 (Perbaikan Render Icon Onboarding, Scroll Container, Pembersihan Tab Progress, & Kalkulator Kalori Medis Terpercaya)
+
+**Peningkatan & Fitur Baru:**
+- 🛠️ **Perbaikan Render Icon & Scroll Onboarding**:
+  - Memperbaiki kegagalan ligatur icon chip (`notifications_sound` diganti `volume_up`) yang menyebabkan teks "SOUND" tumpah ke layar.
+  - Memperbaiki bug scrolling pada container intro onboarding dengan `overflow-y-auto` agar seluruh konten dan tombol navigasi dapat di-scroll lancar pada segala resolusi layar.
+- 🎯 **Pemusatan Profil & Target ke Icon Avatar Header**:
+  - Seluruh kartu "Profil & Target" dan modal ubah profil yang redundan di layar Progress resmi dihapus. Layar Progress kini 100% fokus pada pelacakan riil: Ringkasan Berat Badan, Grafik Perjalanan BB, Lingkar Pinggang, Milestone, dan Riwayat Timbangan.
+  - Fitur Ekspor/Impor Cadangan Data JSON dipindahkan secara rapi ke dalam tab "Kunci AI & Cloud" di Modal Profil Avatar.
+- 🧮 **Kalkulator Kalori Medis Valid & Terpercaya (Mifflin-St Jeor + TDEE)**:
+  - Input form profil kini mencakup lengkap: **Usia, Tinggi Badan (TB), BB Awal, BB Sekarang, Target BB, Lingkar Pinggang, dan Status Menyusui**.
+  - Kalkulasi nutrisi otomatis real-time menggunakan formula medis standar emas klinis:
+    - **BMR (Mifflin-St Jeor)** untuk wanita.
+    - **TDEE (Total Daily Energy Expenditure)** dengan faktor aktivitas 1.25.
+    - **Defisit Kalori Fat Loss Sehat & Aman** (-450 kkal/hari) menuju target BB.
+    - **Buffer Laktasi (+350 kkal)** untuk menjaga kualitas & suplai ASI ibu menyusui.
+    - **Safety Floor Medis WHO**: batas aman minimal 1.200 kkal/hari (atau 1.500 kkal untuk ibu menyusui) guna mencegah starvation mode / malnutrisi.
+    - **Indikator Lingkar Pinggang**: evaluasi batas aman $\le 80$ cm standar Kemenkes RI / WHO Asia-Pasifik.
+  - Tombol 1-klik *"Terapkan Rekomendasi (XXX kkal)"* memudahkan Bunda mengadopsi target kalori medis terpercaya atau menyesuaikannya secara mandiri.
+
 ### 6 Oktober 2026 — v1.5 (Penyempurnaan Alur Onboarding & Layar Autentikasi Saat Sesi Berakhir)
 
 **Peningkatan & Fitur Baru:**

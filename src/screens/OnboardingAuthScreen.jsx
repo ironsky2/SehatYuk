@@ -45,7 +45,7 @@ const SLIDES = [
     chips: [
       { icon: 'timer', label: 'Eating Window Countdown' },
       { icon: 'mosque', label: 'Jadwal Buka Puasa Otomatis' },
-      { icon: 'notifications_sound', label: 'Notifikasi Bel Alami di Luar App' }
+      { icon: 'volume_up', label: 'Notifikasi Bel Alami di Luar App' }
     ]
   },
   {
@@ -167,7 +167,7 @@ export default function OnboardingAuthScreen({ initialMode = 'intro', onComplete
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-rose-50/70 via-surface to-surface flex flex-col justify-between max-w-md mx-auto w-full p-5 relative overflow-hidden select-none">
+    <div className="min-h-screen bg-gradient-to-b from-rose-50/70 via-surface to-surface flex flex-col justify-between max-w-md mx-auto w-full p-5 relative overflow-y-auto">
       {/* Decorative Background Blob */}
       <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-rose-200/40 blur-3xl pointer-events-none" />
       <div className="absolute top-1/2 -left-28 w-60 h-60 rounded-full bg-pink-100/50 blur-2xl pointer-events-none" />

@@ -131,7 +131,7 @@ export default function DashboardScreen() {
               local_florist
             </span>
             <h1 className="font-headline-md text-headline-md text-on-surface font-bold tracking-tight">
-              Halo, {data.profile.name}!
+              Halo, {data.profile?.name || 'Bunda'}!
             </h1>
           </div>
           <span className="font-label-sm text-label-sm text-on-surface-variant font-medium">
@@ -139,7 +139,7 @@ export default function DashboardScreen() {
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {data.profile.isNursing ? (
+          {data.profile?.isNursing ? (
             <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed shadow-xs">
               <span
                 className="material-symbols-outlined text-[15px]"
@@ -167,8 +167,8 @@ export default function DashboardScreen() {
         </div>
       </div>
 
-      {/* 2. Banner Notifikasi Puasa Sunnah (Senin / Kamis) */}
-      {data.isPuasaSunnahActive && (
+      {/* 2. Banner Notifikasi Puasa Sunnah (jika mode puasa aktif) */}
+      {data.isFastingActive !== false && (
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary-fixed via-secondary-fixed to-surface-container-low p-4 shadow-sm border border-outline-variant/30">
           <div className="flex items-start gap-3 relative z-10">
             <div className="w-10 h-10 rounded-full bg-surface/90 flex items-center justify-center text-primary flex-shrink-0 shadow-sm">
@@ -182,7 +182,7 @@ export default function DashboardScreen() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <p className="font-label-lg text-label-lg text-on-primary-fixed font-bold">
-                  Puasa Sunnah Hari Ini
+                  Puasa Hari Ini
                 </p>
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface font-label-sm text-xs text-tertiary font-bold shadow-xs">
                   <span className="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse" />
@@ -191,7 +191,7 @@ export default function DashboardScreen() {
               </div>
               <p className="font-body-sm text-xs text-on-primary-fixed-variant mt-0.5 flex items-center gap-1">
                 <span className="material-symbols-outlined text-[14px]">location_on</span>
-                Maghrib <strong className="font-bold text-on-surface">{prayerTimes.maghrib} WIB</strong> ({data.profile.city})
+                Maghrib <strong className="font-bold text-on-surface">{prayerTimes.maghrib} WIB</strong> ({data.profile?.city || 'GPS Otomatis'})
               </p>
             </div>
           </div>

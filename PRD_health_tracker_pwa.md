@@ -1,6 +1,6 @@
 # 📋 PRD — Health Tracker PWA "Sehat Yuk!"
-**Product Requirements Document v1.2**
-**Dibuat:** 4 Oktober 2026 | **Diperbarui:** 6 Oktober 2026 | **Status:** Disetujui (v1.2 — lihat Bab 10 untuk log progres)
+**Product Requirements Document v1.3**
+**Dibuat:** 4 Oktober 2026 | **Diperbarui:** 6 Oktober 2026 | **Status:** Disetujui (v1.3 — lihat Bab 10 untuk log progres)
 
 ---
 
@@ -352,6 +352,34 @@ Semua pertanyaan desain telah diputuskan dan disetujui:
 ## 10. Log Progres & Changelog
 
 Bagian ini dicatat per tanggal agar progres hari sebelumnya tidak terlewat.
+
+### 6 Oktober 2026 — v1.3 (AI Calorie Calculator, Quick Profile Modal, & Fasting Toggle)
+
+**Peningkatan & Fitur Baru:**
+- 🤖 **Kalkulator Kalori Pintar Google Gemini AI (Teks & Foto)**:
+  - Pengguna dapat mengetik makanan atau mengambil/mengunggah foto makanan untuk estimasi kalori dan takaran porsi otomatis via Gemini AI.
+  - Modal konfigurasi API Key Gemini mandiri yang tersimpan aman di perangkat.
+- 👤 **Modal Pengaturan Profil Cepat di Header**:
+  - Mengklik avatar Bunda di header kini langsung membuka drawer/modal pengaturan profil lengkap (nama, usia, TB/BB, lingkar pinggang, target kalori, status menyusui, dan kunci Gemini AI) tanpa harus pindah tab.
+- 🌙 **Fleksibilitas Status Puasa (Aktif / Non-Aktif)**:
+  - Tersedia tombol saklar di layar Puasa untuk mengaktifkan/menonaktifkan mode puasa hari ini secara mudah.
+  - Tampilan dashboard dan banner secara adaptif beralih antara jadwal puasa atau jadwal diet normal.
+- 📍 **Deteksi Lokasi GPS Otomatis di Latar Belakang**:
+  - Koordinat lokasi untuk perhitungan adhan & waktu Maghrib kini diperbarui secara otomatis via background geolocation tanpa perlu klik manual.
+- 🛡️ **Penanganan Siklus Hormon Defensif**:
+  - Fallback aman untuk perhitungan fase hormon jika tanggal HPHT belum diisi.
+
+**Status fitur saat ini:**
+
+| Fitur | Status |
+|---|---|
+| F1–F3 Dashboard, Log Makan, IF Timer | ✅ Berjalan (dilengkapi AI Gemini Teks & Foto) |
+| F4 Puasa Senin-Kamis, F5 Fase Hormon | ✅ Berjalan + Toggle Aktif/Non-Aktif |
+| F6 Grafik Berat Badan | ✅ Berjalan + catat tanggal lampau |
+| F7 Olahraga, F8 Tracker Mie | ✅ Berjalan |
+| F9 Notifikasi & Service Worker | ✅ Pengingat in-app, bunyi offline chime, SW background sync & push berjalan |
+| F10 Profil & Pengaturan | ✅ Modal Profil cepat di Header + edit data tubuh & Gemini Key |
+| F11 Google Login & Cloud Sync | ✅ Login Google & sinkronisasi data 2-arah ke Supabase (`user_state`, `profiles`, `water_logs`) aktif |
 
 ### 6 Oktober 2026 — v1.2 (Sinkronisasi Cloud Supabase & Background Sync)
 

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { getPrayerTimesForDate } from '../utils/prayerTimes';
+import ProfileSettingsModal from './ProfileSettingsModal';
 
 export default function Header() {
-  const { data, isOnline, isSyncing, activeTab, setActiveTab, requestNotificationPermission, showNotification } = useApp();
+  const { data, isOnline, isSyncing, activeTab, setActiveTab, requestNotificationPermission, showNotification, authUser } = useApp();
   const [notifModalOpen, setNotifModalOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   const prayer = getPrayerTimesForDate(
     new Date(),
@@ -90,19 +92,25 @@ export default function Header() {
             </button>
 
             <button
-              onClick={() => setActiveTab('progress')}
+              onClick={() => setProfileModalOpen(true)}
               aria-label="Profil Bunda"
               className="p-0.5 rounded-full bg-primary-fixed hover:ring-2 hover:ring-primary active:scale-90 transition-all ml-0.5"
             >
               <img
                 alt="Profile"
                 className="w-8 h-8 rounded-full object-cover shadow-sm"
-                src={data.profile.avatar || '/avatar.png'}
+                src={data.profile.avatar || authUser?.user_metadata?.avatar_url || '/avatar.png'}
               />
             </button>
           </div>
         </div>
       </header>
+
+      {/* Modal Pengaturan Profil dari Icon Profil */}
+      <ProfileSettingsModal
+        isOpen={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+      />
 
       {/* Pusat Notifikasi Drawer / Modal */}
       {notifModalOpen && (

@@ -7,13 +7,13 @@ export default function CycleScreen() {
   const { data, updateProfile, showNotification } = useApp();
 
   const [hphtModalOpen, setHphtModalOpen] = useState(false);
-  const [newHpht, setNewHpht] = useState(data.profile.hpht || '2026-09-23');
-  const [newCycleLength, setNewCycleLength] = useState(data.profile.cycleLength || 28);
+  const [newHpht, setNewHpht] = useState(data.profile?.hpht || new Date().toISOString().split('T')[0]);
+  const [newCycleLength, setNewCycleLength] = useState(data.profile?.cycleLength || 28);
   const [selectedDayDetail, setSelectedDayDetail] = useState(null);
   const [recipeModalOpen, setRecipeModalOpen] = useState(false);
   const [currentMonthOffset, setCurrentMonthOffset] = useState(0);
 
-  const cycleInfo = calculateCycleInfo(data.profile.hpht, data.profile.cycleLength);
+  const cycleInfo = calculateCycleInfo(data.profile?.hpht, data.profile?.cycleLength);
 
   const handleSaveHpht = (e) => {
     e.preventDefault();
@@ -92,7 +92,7 @@ export default function CycleScreen() {
               Siklus & Hormon Pribadi
             </p>
             <p className="font-headline-sm text-sm text-primary font-bold">
-              Halo, {data.profile.name}! ✨
+              Halo, {data.profile?.name || 'Bunda'}! ✨
             </p>
           </div>
         </div>
@@ -470,7 +470,7 @@ export default function CycleScreen() {
           <span>Catat Hari Pertama Haid (HPHT) Baru</span>
         </button>
         <p className="text-center font-body-sm text-xs text-on-surface-variant">
-          HPHT terakhir: <span className="font-bold text-on-surface">{data.profile.hpht}</span> • Panjang siklus: <span className="font-bold text-on-surface">{data.profile.cycleLength} hari</span>
+          HPHT terakhir: <span className="font-bold text-on-surface">{data.profile?.hpht || 'Belum dicatat'}</span> • Panjang siklus: <span className="font-bold text-on-surface">{data.profile?.cycleLength || 28} hari</span>
         </p>
       </div>
 

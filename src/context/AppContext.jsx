@@ -7,6 +7,7 @@ import {
   signInWithGoogle,
   signOutUser,
   getCurrentUser,
+  getStoredSession,
   syncAppState,
   fetchAppState,
   syncUserProfile,
@@ -18,40 +19,41 @@ const STORAGE_KEY = 'sehat_yuk_app_data_v3';
 
 const defaultState = {
   profile: {
-    name: 'Bunda',
+    name: '', // Bersih tanpa data dummy
     avatar: '/avatar.png',
-    age: 30,
-    isNursing: false, // Tidak menyusui sesuai update PRD
-    height: 158,
-    startWeight: 65.0,
-    currentWeight: 65.0,
-    targetWeight: 59.0,
-    waistCircumference: 84,
-    hpht: '2026-09-23', // Haid mulai 23 Sept
-    periodEnd: '2026-10-01', // Selesai 1 Okt
-    periodDuration: 9,
+    age: '',
+    isNursing: false,
+    height: '',
+    startWeight: '',
+    currentWeight: '',
+    targetWeight: '',
+    waistCircumference: '',
+    hpht: '',
+    periodEnd: '',
+    periodDuration: 7,
     cycleLength: 28,
-    ifStart: '11:00',
-    ifEnd: '19:00',
-    dailyCalorieTarget: 1300,
-    bmr: 1380,
-    tdee: 1650,
-    city: 'Jakarta Selatan',
-    coords: { lat: -6.2615, lng: 106.8106 }
+    ifStart: '12:00',
+    ifEnd: '20:00',
+    dailyCalorieTarget: 1500,
+    bmr: 1300,
+    tdee: 1600,
+    city: 'Lokasi Otomatis (GPS)',
+    coords: { lat: -6.2, lng: 106.8 }
   },
   meals: [], // Bersih tanpa data dummy
-  waterGlasses: 0, // Mulai dari 0 gelas
-  waterDate: localDateStr(), // Tanggal catatan air minum (reset otomatis tiap hari)
-  exercises: [], // Bersih tanpa data dummy
-  exerciseDaysCompleted: 0, // Diturunkan dari riwayat olahraga minggu berjalan
+  waterGlasses: 0,
+  waterDate: localDateStr(),
+  exercises: [],
+  exerciseDaysCompleted: 0,
   mieTracker: {
     quota: 1,
     consumed: 0,
-    period: '1 Okt - 14 Okt 2026',
+    period: 'Periode Berjalan',
     lastEaten: null
   },
-  weightLogs: [], // Bersih tanpa data dummy
+  weightLogs: [],
   fastingMode: 'sunnah', // 'sunnah' or 'if'
+  isFastingActive: true, // Puasa dapat diaktifkan / dinonaktifkan
   isPuasaSunnahActive: true,
   streaks: [false, false, false, false, false, false],
   notifications: {
@@ -69,33 +71,36 @@ const AppContext = createContext(null);
 // Gabungkan data tersimpan/impor dengan struktur default agar tidak ada field yang hilang.
 function normalizeData(parsed) {
   const today = localDateStr();
-  const meals = (Array.isArray(parsed.meals) ? parsed.meals : []).map((m) => ({
+  const meals = (Array.isArray(parsed?.meals) ? parsed.meals : []).map((m) => ({
     ...m,
     date: m.date || localDateStr(new Date(Number(m.id) || Date.now()))
   }));
-  const sameDayWater = parsed.waterDate === today;
+  const sameDayWater = parsed?.waterDate === today;
   return {
     ...defaultState,
     ...parsed,
     profile: {
       ...defaultState.profile,
-      ...parsed.profile,
+      ...(parsed?.profile || {}),
+      name: parsed?.profile?.name || '',
       coords: {
-        lat: parsed.profile?.coords?.lat ?? defaultState.profile.coords.lat,
-        lng: parsed.profile?.coords?.lng ?? defaultState.profile.coords.lng
+        lat: parsed?.profile?.coords?.lat ?? defaultState.profile.coords.lat,
+        lng: parsed?.profile?.coords?.lng ?? defaultState.profile.coords.lng
       },
-      isNursing: false,
-      hpht: parsed.profile?.hpht || defaultState.profile.hpht,
-      periodEnd: parsed.profile?.periodEnd || defaultState.profile.periodEnd,
-      periodDuration: 9
+      isNursing: Boolean(parsed?.profile?.isNursing),
+      hpht: parsed?.profile?.hpht || '',
+      periodEnd: parsed?.profile?.periodEnd || '',
+      periodDuration: Number(parsed?.profile?.periodDuration) || 7,
+      cycleLength: Number(parsed?.profile?.cycleLength) || 28
     },
-    mieTracker: { ...defaultState.mieTracker, ...parsed.mieTracker },
-    notifications: { ...defaultState.notifications, ...parsed.notifications },
+    mieTracker: { ...defaultState.mieTracker, ...(parsed?.mieTracker || {}) },
+    notifications: { ...defaultState.notifications, ...(parsed?.notifications || {}) },
     meals,
-    exercises: Array.isArray(parsed.exercises) ? parsed.exercises : [],
-    weightLogs: Array.isArray(parsed.weightLogs) ? parsed.weightLogs : [],
+    exercises: Array.isArray(parsed?.exercises) ? parsed.exercises : [],
+    weightLogs: Array.isArray(parsed?.weightLogs) ? parsed.weightLogs : [],
     waterGlasses: sameDayWater ? Number(parsed.waterGlasses) || 0 : 0,
-    waterDate: today
+    waterDate: today,
+    isFastingActive: parsed?.isFastingActive !== false
   };
 }
 
@@ -104,7 +109,9 @@ function computeEnergy(profile) {
   const w = Number(profile.currentWeight);
   const h = Number(profile.height);
   const a = Number(profile.age);
-  if (!(w > 0 && h > 0 && a > 0)) return {};
+  if (!(w > 0 && h > 0 && a > 0)) {
+    return { bmr: 1300, tdee: 1600 };
+  }
   const bmr = Math.round(10 * w + 6.25 * h - 5 * a - 161);
   return { bmr, tdee: Math.round(bmr * 1.2) };
 }
@@ -302,13 +309,14 @@ export function AppProvider({ children }) {
     showNotification('Sinkronisasi Selesai ☁️', 'Catatan kesehatan Bunda berhasil disinkronkan ke Cloud!');
   };
 
-  // Check Supabase Auth state and listen to login changes
+  // Check Supabase Auth state, restore session, and listen to login changes
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
 
     try {
-      getCurrentUser()
-        .then((user) => {
+      getStoredSession()
+        .then((session) => {
+          const user = session?.user || null;
           if (user) {
             setAuthUser(user);
             applyAuthProfile(user);
@@ -319,10 +327,10 @@ export function AppProvider({ children }) {
           }
         })
         .catch((err) => {
-          console.warn('Auth get user error:', err);
+          console.warn('Auth get session error:', err);
         });
 
-      const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
         const user = session?.user || null;
         setAuthUser(user);
         if (user) {
@@ -331,7 +339,7 @@ export function AppProvider({ children }) {
             isInitialSyncDone.current = true;
             loadCloudData(user);
           }
-        } else {
+        } else if (event === 'SIGNED_OUT') {
           isInitialSyncDone.current = false;
           setSyncStatus('idle');
         }
@@ -342,6 +350,37 @@ export function AppProvider({ children }) {
       };
     } catch (err) {
       console.warn('Supabase auth listener initialization error:', err);
+    }
+  }, []);
+
+  // Otomatisasi Waktu Sholat & Buka Puasa via GPS tanpa deteksi manual
+  useEffect(() => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          setData((prev) => {
+            // Jika koordinat belum disetel atau berbeda
+            const prevLat = prev.profile?.coords?.lat;
+            const prevLng = prev.profile?.coords?.lng;
+            if (prevLat && prevLng && Math.abs(prevLat - latitude) < 0.005 && Math.abs(prevLng - longitude) < 0.005) {
+              return prev;
+            }
+            return {
+              ...prev,
+              profile: {
+                ...prev.profile,
+                city: 'Lokasi Otomatis (GPS)',
+                coords: { lat: latitude, lng: longitude }
+              }
+            };
+          });
+        },
+        (err) => {
+          console.log('GPS otomatis background: menggunakan lokasi default.', err.message);
+        },
+        { enableHighAccuracy: false, timeout: 10000, maximumAge: 3600000 }
+      );
     }
   }, []);
 
@@ -703,11 +742,45 @@ export function AppProvider({ children }) {
     showNotification('Berhasil Keluar', 'Sesi akun Google telah diakhiri.');
   };
 
-  const clearAllData = () => {
-    if (window.confirm('Apakah Anda yakin ingin menghapus semua data dan memulai dari catatan baru?')) {
-      localStorage.removeItem(STORAGE_KEY);
-      setData({ ...defaultState, waterDate: localDateStr() });
-      showNotification('Data Dibersihkan 🧹', 'Seluruh data telah di-reset. Anda dapat mulai mengisi data riil baru!');
+  const toggleFastingActive = (forcedValue) => {
+    setData((prev) => {
+      const next = typeof forcedValue === 'boolean' ? forcedValue : !prev.isFastingActive;
+      showNotification(
+        next ? 'Mode Puasa Aktif 🌙' : 'Mode Puasa Non-Aktif 🍽️',
+        next
+          ? 'Pelacak puasa aktif. Jadwal sahur & buka puasa siap menemani Bunda.'
+          : 'Puasa dinonaktifkan untuk hari ini. Jadwal makan normal diterapkan.'
+      );
+      return {
+        ...prev,
+        isFastingActive: next
+      };
+    });
+  };
+
+  const clearAllData = async () => {
+    if (window.confirm('Apakah Anda yakin ingin menghapus seluruh data catatan dan profil? Seluruh riwayat akan dibersihkan dan dimulai dari awal tanpa data dummy.')) {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        const cleanState = {
+          ...defaultState,
+          waterDate: localDateStr(),
+          profile: {
+            ...defaultState.profile,
+            name: authUser?.user_metadata?.full_name || '',
+            avatar: authUser?.user_metadata?.avatar_url || '/avatar.png'
+          }
+        };
+        setData(cleanState);
+        // Sinkronkan ke cloud Supabase jika pengguna sedang terhubung
+        if (authUser && isSupabaseConfigured) {
+          await syncToCloud(cleanState, authUser);
+        }
+        showNotification('Data Bersih 🧹', 'Seluruh data catatan dummy telah dihapus. Aplikasi kini bersih untuk data pribadi Anda!');
+      } catch (err) {
+        console.error('Error saat menghapus data:', err);
+        showNotification('Data Dihapus', 'Data lokal berhasil di-reset.');
+      }
     }
   };
 
@@ -754,6 +827,8 @@ export function AppProvider({ children }) {
         addExercise,
         updateProfile,
         togglePuasaSunnah,
+        isFastingActive: data.isFastingActive !== false,
+        toggleFastingActive,
         setFastingMode,
         toggleNotification,
         requestNotificationPermission,

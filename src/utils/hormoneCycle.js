@@ -73,24 +73,36 @@ export function getPhaseForCycleDay(dayNumber, periodDuration = 9) {
   return PHASES.LUTEAL;
 }
 
-export function getCycleDayForDate(targetDate, hphtString = '2026-09-23', cycleLength = 28) {
+export function getCycleDayForDate(targetDate, hphtString = null, cycleLength = 28) {
+  if (!hphtString) return 1;
   const hpht = parseLocalDate(hphtString);
   const target = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
   const diffDays = Math.round((target.getTime() - hpht.getTime()) / (1000 * 60 * 60 * 24));
   return (((diffDays % cycleLength) + cycleLength) % cycleLength) + 1;
 }
 
-export function getPhaseForDay(dayNumber, cycleLength = 28, periodDuration = 9) {
+export function getPhaseForDay(dayNumber, cycleLength = 28, periodDuration = 7) {
   const day = ((dayNumber - 1) % cycleLength) + 1;
   return getPhaseForCycleDay(day, periodDuration);
 }
 
 export function calculateCycleInfo(
-  hphtString = '2026-09-23',
+  hphtString = null,
   cycleLength = 28,
   targetDate = new Date(),
-  periodDuration = 9
+  periodDuration = 7
 ) {
+  if (!hphtString) {
+    return {
+      hasHpht: false,
+      currentDay: 1,
+      cycleLength: Number(cycleLength) || 28,
+      periodDuration: Number(periodDuration) || 7,
+      phase: PHASES.FOLIKULER,
+      nextPeriod: 'Belum dicatat'
+    };
+  }
+
   const hpht = parseLocalDate(hphtString);
   const target = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
   const diffTime = target.getTime() - hpht.getTime();
@@ -105,6 +117,7 @@ export function calculateCycleInfo(
   const nextPeriod = new Date(hpht.getTime() + (cyclesPassed + 1) * cycleLength * 24 * 60 * 60 * 1000);
 
   return {
+    hasHpht: true,
     currentDay,
     cycleLength,
     periodDuration,

@@ -17,10 +17,27 @@ export const supabase = isSupabaseConfigured
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        detectSessionInUrl: true
+        detectSessionInUrl: true,
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+        storageKey: 'sehat_yuk_auth_token'
       }
     })
   : null;
+
+/**
+ * Mengambil sesi autentikasi aktif yang tersimpan
+ */
+export async function getStoredSession() {
+  if (!isSupabaseConfigured || !supabase) return null;
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error || !session) return null;
+    return session;
+  } catch (err) {
+    console.warn('Supabase getSession warning:', err);
+    return null;
+  }
+}
 
 // ==========================================
 // Authentication Helpers

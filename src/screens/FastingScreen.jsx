@@ -4,7 +4,7 @@ import { getPrayerTimesForDate, INDONESIAN_CITIES } from '../utils/prayerTimes';
 import confetti from 'canvas-confetti';
 
 export default function FastingScreen() {
-  const { data, updateProfile, showNotification } = useApp();
+  const { data, updateProfile, showNotification, isFastingActive, toggleFastingActive } = useApp();
 
   const [mode, setMode] = useState(data.fastingMode || 'sunnah');
   const [activeDoaTab, setActiveDoaTab] = useState('buka');
@@ -12,7 +12,7 @@ export default function FastingScreen() {
 
   // Prayer times
   const [prayerTimes, setPrayerTimes] = useState(() =>
-    getPrayerTimesForDate(new Date(), data.profile.coords.lat, data.profile.coords.lng)
+    getPrayerTimesForDate(new Date(), data.profile?.coords?.lat, data.profile?.coords?.lng)
   );
 
   const [maghribCountdown, setMaghribCountdown] = useState('02:18:45');
@@ -25,8 +25,8 @@ export default function FastingScreen() {
 
   // Recalculate prayer times if coordinates change
   useEffect(() => {
-    setPrayerTimes(getPrayerTimesForDate(new Date(), data.profile.coords.lat, data.profile.coords.lng));
-  }, [data.profile.coords]);
+    setPrayerTimes(getPrayerTimesForDate(new Date(), data.profile?.coords?.lat, data.profile?.coords?.lng));
+  }, [data.profile?.coords]);
 
   // Real-time ticking timers
   useEffect(() => {
@@ -67,8 +67,8 @@ export default function FastingScreen() {
       }
 
       // 2. IF 16:8 countdown
-      const [startH, startM] = (data.profile.ifStart || '11:00').split(':').map(Number);
-      const [endH, endM] = (data.profile.ifEnd || '19:00').split(':').map(Number);
+      const [startH, startM] = (data.profile?.ifStart || '11:00').split(':').map(Number);
+      const [endH, endM] = (data.profile?.ifEnd || '19:00').split(':').map(Number);
 
       const startDate = new Date();
       startDate.setHours(startH, startM, 0, 0);
@@ -104,7 +104,7 @@ export default function FastingScreen() {
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [prayerTimes, data.profile.ifStart, data.profile.ifEnd]);
+  }, [prayerTimes, data.profile?.ifStart, data.profile?.ifEnd]);
 
   const handleCityChange = (city) => {
     updateProfile({
@@ -112,25 +112,6 @@ export default function FastingScreen() {
       coords: { lat: city.lat, lng: city.lng }
     });
     setCitySelectorOpen(false);
-  };
-
-  const handleUseGPS = () => {
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          updateProfile({
-            city: 'Lokasi GPS Akurat',
-            coords: { lat: pos.coords.latitude, lng: pos.coords.longitude }
-          });
-          showNotification('GPS Terdeteksi 📍', 'Waktu sholat & Maghrib dihitung offline secara presisi.');
-        },
-        () => {
-          alert('Izin lokasi tidak diberikan. Silakan pilih kota manual.');
-        }
-      );
-    } else {
-      alert('Perangkat tidak mendukung Geolocation.');
-    }
   };
 
   const handleLogNiat = () => {
@@ -151,6 +132,39 @@ export default function FastingScreen() {
 
   return (
     <div className="flex flex-col w-full gap-4">
+      {/* Kartu Status Aktif / Non-Aktif Puasa */}
+      <div className="bg-surface-container-lowest p-3.5 rounded-2xl shadow-sm border border-outline-variant/30 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className={`w-9 h-9 rounded-full flex items-center justify-center ${isFastingActive ? 'bg-primary text-on-primary shadow-xs' : 'bg-surface-container text-on-surface-variant'}`}>
+            <span className="material-symbols-outlined text-[20px]">
+              {isFastingActive ? 'bedtime' : 'restaurant'}
+            </span>
+          </div>
+          <div>
+            <span className="font-label-sm text-xs font-bold text-on-surface block">
+              {isFastingActive ? 'Sedang Menjalankan Puasa' : 'Sedang Tidak Berpuasa'}
+            </span>
+            <span className="font-body-sm text-[11px] text-on-surface-variant">
+              {isFastingActive ? 'Jadwal sahur, imsak & buka puasa aktif' : 'Jadwal makan normal (diet harian)'}
+            </span>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => toggleFastingActive()}
+          className={`px-3 py-1.5 rounded-full font-label-sm text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 ${
+            isFastingActive
+              ? 'bg-primary text-on-primary shadow-xs'
+              : 'bg-surface-container-highest text-on-surface hover:bg-primary hover:text-on-primary'
+          }`}
+        >
+          <span className="material-symbols-outlined text-[15px]">
+            {isFastingActive ? 'check_circle' : 'power_settings_new'}
+          </span>
+          <span>{isFastingActive ? 'Aktif' : 'Aktifkan'}</span>
+        </button>
+      </div>
+
       {/* Mode Switcher */}
       <div className="bg-surface-container p-1 rounded-full flex items-center justify-between shadow-xs border border-outline-variant/20 relative">
         <button
@@ -162,7 +176,7 @@ export default function FastingScreen() {
           }`}
         >
           <span className="material-symbols-outlined text-[16px]">bedtime</span>
-          <span>Puasa Sunnah {mode === 'sunnah' ? '(Aktif)' : ''}</span>
+          <span>Puasa Sunnah</span>
         </button>
 
         <button
@@ -177,6 +191,23 @@ export default function FastingScreen() {
           <span>IF 16:8 (Hari Biasa)</span>
         </button>
       </div>
+
+      {/* Jika Puasa Non-Aktif, Tampilkan Banner Ramah */}
+      {!isFastingActive && (
+        <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/20 flex flex-col gap-2.5 text-center items-center">
+          <div className="w-12 h-12 rounded-full bg-secondary-fixed/50 text-secondary flex items-center justify-center">
+            <span className="material-symbols-outlined text-[24px]">restaurant_menu</span>
+          </div>
+          <div>
+            <h3 className="font-headline-sm text-sm font-bold text-on-surface">
+              Hari Ini Sedang Tidak Berpuasa
+            </h3>
+            <p className="font-body-sm text-xs text-on-surface-variant mt-1 max-w-xs leading-relaxed">
+              Bunda dapat menikmati ritme makan normal dengan defisit kalori terarah. Klik tombol di atas jika Bunda ingin mulai berpuasa.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* CONTAINER: PUASA SENIN-KAMIS (F4) */}
       {mode === 'sunnah' && (
@@ -198,14 +229,16 @@ export default function FastingScreen() {
                   Puasa Senin & Kamis
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full font-label-sm text-xs bg-secondary-fixed text-on-secondary-fixed font-bold">
-                  Fase F4
+                  Waktu Otomatis GPS
                 </span>
               </div>
               <h2 className="font-headline-sm text-base text-on-surface font-extrabold mt-1 tracking-tight">
-                Alhamdulillah, Puasa Berjalan Lancar 🤲
+                {isFastingActive ? 'Alhamdulillah, Puasa Berjalan Lancar 🤲' : 'Jadwal Sholat & Imsakiyah Hari Ini'}
               </h2>
               <p className="font-body-sm text-xs text-on-surface-variant mt-0.5">
-                Tubuh beristirahat, jiwa lebih tenang. Niatkan karena Allah dan kesehatan diri.
+                {isFastingActive
+                  ? 'Tubuh beristirahat, jiwa lebih tenang. Niatkan karena Allah dan kesehatan diri.'
+                  : 'Waktu adhan dihitung otomatis berdasarkan koordinat GPS Anda.'}
               </p>
             </div>
           </div>
@@ -215,20 +248,18 @@ export default function FastingScreen() {
             <div className="flex items-center justify-between text-on-surface-variant">
               <div
                 onClick={() => setCitySelectorOpen(!citySelectorOpen)}
-                className="flex items-center gap-1 min-w-0 cursor-pointer hover:text-primary transition-colors"
+                className="flex items-center gap-1.5 min-w-0 cursor-pointer hover:text-primary transition-colors"
               >
-                <span className="material-symbols-outlined text-[18px] text-tertiary">my_location</span>
+                <span className="material-symbols-outlined text-[18px] text-primary">my_location</span>
                 <span className="font-label-sm text-xs truncate font-bold text-on-surface underline">
-                  {data.profile.city} (Offline Adhan)
+                  {data.profile?.city || 'Lokasi Otomatis (GPS)'}
                 </span>
+                <span className="material-symbols-outlined text-[14px]">arrow_drop_down</span>
               </div>
-              <button
-                onClick={handleUseGPS}
-                className="px-2.5 py-1 rounded-full font-label-sm text-[11px] bg-tertiary-container text-on-tertiary-container font-bold flex items-center gap-1 active:scale-95 shadow-xs"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-tertiary-fixed animate-ping" />
-                Deteksi GPS
-              </button>
+              <span className="px-2 py-0.5 rounded-full font-label-sm text-[10px] bg-secondary-fixed text-on-secondary-fixed font-bold flex items-center gap-1 shadow-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />
+                GPS Otomatis
+              </span>
             </div>
 
             {/* City Selector Accordion */}

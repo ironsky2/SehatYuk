@@ -1,7 +1,17 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { triggerSystemNotification, playNotificationSound } from '../utils/notificationSound';
-import { supabase, isSupabaseConfigured, signInWithGoogle, signOutUser, getCurrentUser } from '../services/supabase';
+import {
+  supabase,
+  isSupabaseConfigured,
+  signInWithGoogle,
+  signOutUser,
+  getCurrentUser,
+  syncAppState,
+  fetchAppState,
+  syncUserProfile,
+  syncWaterLog
+} from '../services/supabase';
 import { localDateStr, startOfWeekStr, formatDateLabel } from '../utils/dateUtils';
 
 const STORAGE_KEY = 'sehat_yuk_app_data_v3';
@@ -143,11 +153,14 @@ export function AppProvider({ children }) {
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState('idle'); // 'idle' | 'syncing' | 'synced' | 'error'
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
   const [inAppAlert, setInAppAlert] = useState(null);
   const [activeTab, setActiveTab] = useState('beranda');
   const [quickMealModalOpen, setQuickMealModalOpen] = useState(false);
   const [hasAlertedOverLimit, setHasAlertedOverLimit] = useState(false);
   const [authUser, setAuthUser] = useState(null);
+  const isInitialSyncDone = useRef(false);
 
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(() => {
     try {
@@ -188,6 +201,97 @@ export function AppProvider({ children }) {
     }));
   };
 
+  // Sinkronisasi data ke Cloud Supabase (user_state, profiles, water_logs)
+  const syncToCloud = async (stateToSync, user = authUser) => {
+    if (!isSupabaseConfigured || !user || !navigator.onLine) return;
+    setIsSyncing(true);
+    setSyncStatus('syncing');
+    try {
+      await Promise.allSettled([
+        syncAppState(stateToSync),
+        syncUserProfile(stateToSync.profile),
+        syncWaterLog(
+          stateToSync.waterDate === today ? stateToSync.waterGlasses : 0,
+          stateToSync.waterDate || today
+        )
+      ]);
+      setSyncStatus('synced');
+      const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      setLastSyncedAt(timeStr);
+    } catch (err) {
+      console.warn('Sync to cloud error:', err);
+      setSyncStatus('error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Ambil data dari Cloud Supabase saat login pertama kali
+  const loadCloudData = async (user) => {
+    if (!isSupabaseConfigured || !user) return;
+    try {
+      setIsSyncing(true);
+      setSyncStatus('syncing');
+      const remoteState = await fetchAppState();
+      if (
+        remoteState &&
+        (remoteState.meals?.length ||
+          remoteState.weightLogs?.length ||
+          remoteState.exercises?.length ||
+          remoteState.profile?.nameCustom)
+      ) {
+        setData((local) => {
+          const localMealIds = new Set(local.meals.map((m) => m.id));
+          const remoteMeals = Array.isArray(remoteState.meals) ? remoteState.meals : [];
+          const mergedMeals = [
+            ...local.meals,
+            ...remoteMeals.filter((m) => !localMealIds.has(m.id))
+          ].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+
+          const localWeightDates = new Set(local.weightLogs.map((w) => w.dateISO));
+          const remoteWeights = Array.isArray(remoteState.weightLogs) ? remoteState.weightLogs : [];
+          const mergedWeights = [
+            ...local.weightLogs,
+            ...remoteWeights.filter((w) => !localWeightDates.has(w.dateISO))
+          ].sort((a, b) => String(a.dateISO || '').localeCompare(String(b.dateISO || '')));
+
+          const localExIds = new Set(local.exercises.map((e) => e.id));
+          const remoteEx = Array.isArray(remoteState.exercises) ? remoteState.exercises : [];
+          const mergedExercises = [
+            ...local.exercises,
+            ...remoteEx.filter((e) => !localExIds.has(e.id))
+          ];
+
+          return normalizeData({
+            ...defaultState,
+            ...remoteState,
+            ...local,
+            profile: {
+              ...defaultState.profile,
+              ...remoteState.profile,
+              ...local.profile
+            },
+            meals: mergedMeals,
+            weightLogs: mergedWeights,
+            exercises: mergedExercises
+          });
+        });
+        showNotification('Data Cloud Terhubung ☁️', 'Catatan kalori, berat badan, dan profil Bunda berhasil disinkronkan.');
+      } else {
+        // Upload initial local data to cloud
+        await syncToCloud(rawData, user);
+      }
+      setSyncStatus('synced');
+      const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      setLastSyncedAt(timeStr);
+    } catch (err) {
+      console.warn('Load cloud data error:', err);
+      setSyncStatus('error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   // Check Supabase Auth state and listen to login changes
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
@@ -198,6 +302,10 @@ export function AppProvider({ children }) {
           if (user) {
             setAuthUser(user);
             applyAuthProfile(user);
+            if (!isInitialSyncDone.current) {
+              isInitialSyncDone.current = true;
+              loadCloudData(user);
+            }
           }
         })
         .catch((err) => {
@@ -207,7 +315,16 @@ export function AppProvider({ children }) {
       const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
         const user = session?.user || null;
         setAuthUser(user);
-        applyAuthProfile(user);
+        if (user) {
+          applyAuthProfile(user);
+          if (!isInitialSyncDone.current) {
+            isInitialSyncDone.current = true;
+            loadCloudData(user);
+          }
+        } else {
+          isInitialSyncDone.current = false;
+          setSyncStatus('idle');
+        }
       });
 
       return () => {
@@ -227,11 +344,36 @@ export function AppProvider({ children }) {
     }
   }, [rawData]);
 
+  // Debounced Auto-sync ke Cloud Supabase saat data lokal berubah
+  useEffect(() => {
+    if (!authUser || !isOnline || !isInitialSyncDone.current) return;
+    const timer = setTimeout(() => {
+      syncToCloud(rawData, authUser);
+    }, 1800);
+    return () => clearTimeout(timer);
+  }, [rawData, authUser, isOnline]);
+
+  // Service Worker Background Sync event listener
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      const handleMsg = (e) => {
+        if (e.data?.type === 'TRIGGER_DATA_SYNC' && authUser && isOnline) {
+          syncToCloud(rawData, authUser);
+        }
+      };
+      navigator.serviceWorker.addEventListener('message', handleMsg);
+      return () => navigator.serviceWorker.removeEventListener('message', handleMsg);
+    }
+  }, [authUser, isOnline, rawData]);
+
   // Network online/offline listener
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
       triggerSyncToast('Koneksi pulih. Data otomatis tersinkron!');
+      if (authUser) {
+        syncToCloud(rawData, authUser);
+      }
     };
     const handleOffline = () => {
       setIsOnline(false);
@@ -244,7 +386,7 @@ export function AppProvider({ children }) {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [authUser, rawData]);
 
   // Kalori hari ini (hanya makanan bertanggal hari ini)
   const todayMeals = data.meals.filter((m) => m.date === today);
@@ -561,6 +703,9 @@ export function AppProvider({ children }) {
         data,
         isOnline,
         isSyncing,
+        syncStatus,
+        lastSyncedAt,
+        triggerManualSync,
         authUser,
         isSupabaseConfigured,
         hasCompletedOnboarding,

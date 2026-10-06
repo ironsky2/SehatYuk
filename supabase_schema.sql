@@ -147,3 +147,32 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- =========================================================================
+-- 5. Tabel Sinkronisasi Komprehensif Aplikasi (user_state)
+-- Menyimpan seluruh riwayat makanan, berat badan, olahraga, dan target kalori
+-- =========================================================================
+CREATE TABLE IF NOT EXISTS public.user_state (
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  state JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.user_state ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own state"
+  ON public.user_state FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own state"
+  ON public.user_state FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own state"
+  ON public.user_state FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own state"
+  ON public.user_state FOR DELETE
+  USING (auth.uid() = user_id);
+

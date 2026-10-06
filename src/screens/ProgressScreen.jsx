@@ -6,6 +6,11 @@ export default function ProgressScreen() {
   const {
     data,
     today,
+    isOnline,
+    isSyncing,
+    syncStatus,
+    lastSyncedAt,
+    triggerManualSync,
     authUser,
     handleGoogleSignIn,
     handleSignOut,
@@ -688,21 +693,47 @@ export default function ProgressScreen() {
           </div>
 
           {authUser ? (
-            <div className="flex items-center justify-between p-2 rounded-xl bg-surface-container">
-              <div className="min-w-0 pr-2">
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-surface-container gap-2">
+              <div className="min-w-0 pr-1">
                 <p className="text-xs font-bold text-on-surface truncate">
                   {authUser.user_metadata?.full_name || authUser.email}
                 </p>
-                <p className="text-[10px] text-tertiary font-semibold truncate">
-                  ● Terhubung
-                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      isSyncing ? 'bg-primary animate-ping' : isOnline ? 'bg-tertiary' : 'bg-outline'
+                    }`}
+                  />
+                  <p className="text-[10px] text-tertiary font-semibold truncate">
+                    {isSyncing
+                      ? 'Menyinkronkan...'
+                      : syncStatus === 'synced'
+                      ? `Tersinkron Cloud (${lastSyncedAt || 'Baru saja'})`
+                      : isOnline
+                      ? '● Terhubung ke Google'
+                      : '○ Tersimpan di HP (Offline)'}
+                  </p>
+                </div>
               </div>
-              <button
-                onClick={handleSignOut}
-                className="py-1.5 px-3 rounded-lg bg-surface-container-high hover:bg-error-container text-on-surface-variant hover:text-error text-[11px] font-bold transition-colors"
-              >
-                Keluar
-              </button>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <button
+                  onClick={triggerManualSync}
+                  disabled={isSyncing}
+                  title="Sinkronkan data sekarang"
+                  className="py-1 px-2 rounded-lg bg-surface-container-high hover:bg-tertiary-container/30 text-tertiary hover:text-on-tertiary-container text-[11px] font-bold flex items-center gap-1 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  <span className={`material-symbols-outlined text-[14px] ${isSyncing ? 'animate-spin' : ''}`}>
+                    sync
+                  </span>
+                  <span>Sinkron</span>
+                </button>
+                <button
+                  onClick={handleSignOut}
+                  className="py-1 px-2.5 rounded-lg bg-surface-container-high hover:bg-error-container text-on-surface-variant hover:text-error text-[11px] font-bold transition-colors"
+                >
+                  Keluar
+                </button>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col gap-2">

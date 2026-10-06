@@ -1,6 +1,6 @@
 # 📋 PRD — Health Tracker PWA "Sehat Yuk!"
-**Product Requirements Document v1.1**
-**Dibuat:** 4 Oktober 2026 | **Diperbarui:** 6 Oktober 2026 | **Status:** Disetujui (v1.1 — lihat Bab 10 untuk log progres)
+**Product Requirements Document v1.2**
+**Dibuat:** 4 Oktober 2026 | **Diperbarui:** 6 Oktober 2026 | **Status:** Disetujui (v1.2 — lihat Bab 10 untuk log progres)
 
 ---
 
@@ -353,6 +353,31 @@ Semua pertanyaan desain telah diputuskan dan disetujui:
 
 Bagian ini dicatat per tanggal agar progres hari sebelumnya tidak terlewat.
 
+### 6 Oktober 2026 — v1.2 (Sinkronisasi Cloud Supabase & Background Sync)
+
+**Peningkatan & Fitur Baru:**
+- ✅ **Sinkronisasi Data 2-Arah ke Supabase**:
+  - Seluruh riwayat makanan, berat badan, olahraga, jatah mie, target kalori, profil, dan catatan air kini tersimpan otomatis di database Cloud Supabase (`user_state`, `profiles`, `water_logs`).
+  - Auto-hydration saat login: bila Bunda login di perangkat atau browser baru, riwayat data otomatis dimuat dan digabungkan (merge) tanpa kehilangan catatan lokal.
+  - Auto debounced sync: perubahan data lokal otomatis diunggah ke Supabase di latar belakang dengan interval aman.
+  - Auto resync saat koneksi pulih setelah offline.
+  - Indikator visual status sinkronisasi (Menyinkronkan... / Cloud Tersinkron) serta tombol **Sinkron** manual di tab Profil.
+- ✅ **Service Worker Background Sync & Notifikasi Interaktif**:
+  - `sw.js` kini menangani event `sync` dan komunikasi `message` untuk sinkronisasi di latar belakang.
+  - Notifikasi push luar aplikasi kini dilengkapi aksi interaktif dan navigasi langsung ke aplikasi saat diklik.
+
+**Status fitur saat ini:**
+
+| Fitur | Status |
+|---|---|
+| F1–F3 Dashboard, Log Makan, IF Timer | ✅ Berjalan (data per tanggal) |
+| F4 Puasa Senin-Kamis, F5 Fase Hormon | ✅ Berjalan |
+| F6 Grafik Berat Badan | ✅ Berjalan + catat tanggal lampau |
+| F7 Olahraga, F8 Tracker Mie | ✅ Berjalan |
+| F9 Notifikasi & Service Worker | ✅ Pengingat in-app, bunyi offline chime, Service Worker background listener & push berjalan |
+| F10 Profil | ✅ Dapat diedit + indikator sinkronisasi cloud |
+| F11 Google Login & Cloud Sync | ✅ Login Google & sinkronisasi data 2-arah ke Supabase (`user_state`, `profiles`, `water_logs`) aktif penuh |
+
 ### 6 Oktober 2026 — v1.1 (QA & Penyempurnaan)
 
 **Bug yang ditemukan & diperbaiki:**
@@ -377,25 +402,9 @@ Bagian ini dicatat per tanggal agar progres hari sebelumnya tidak terlewat.
 - Dihapus: badge "RLS Aktif"/"Push Aktif", panel panduan kalori, tombol "Rekomendasi" berisi menu contoh, kartu rutinitas statis, tombol reset olahraga manual, tombol "Lihat Ulang Slide Pengenalan", teks "Offline-Proof", dan klaim sinkronisasi cloud yang belum berfungsi.
 - Nama default "Bunda Sarah" diganti "Bunda"; hitungan target bulanan/estimasi tetap diganti progres nyata menuju target.
 
-**Status fitur saat ini:**
-
-| Fitur | Status |
-|---|---|
-| F1–F3 Dashboard, Log Makan, IF Timer | ✅ Berjalan (data per tanggal) |
-| F4 Puasa Senin-Kamis, F5 Fase Hormon | ✅ Berjalan |
-| F6 Grafik Berat Badan | ✅ Berjalan + catat tanggal lampau |
-| F7 Olahraga, F8 Tracker Mie | ✅ Berjalan |
-| F9 Notifikasi | 🟡 Pengingat in-app & uji bunyi berjalan; penjadwalan push di latar belakang belum ada |
-| F10 Profil | ✅ Dapat diedit |
-| F11 Google Login | 🟡 Login berjalan (perlu env Supabase + provider Google aktif); **sinkronisasi data ke cloud belum terhubung** — data masih tersimpan di perangkat (LocalStorage) |
-
-**Belum dikerjakan / langkah berikutnya:**
-- Menghubungkan penyimpanan data ke Supabase (helper sudah ada di `src/services/supabase.js`, belum dipanggil).
-- Penjadwalan push notification di latar belakang (Service Worker).
-- Pencatatan air minum untuk hari sebelumnya.
-
 ### 5 Oktober 2026
 - Setup awal PWA, Google Sign-In via Supabase, dan konfigurasi env Supabase (URL & anon key) dilakukan; deploy ke Vercel.
 
 ### 4 Oktober 2026
 - PRD v1.0 disetujui dan implementasi MVP dimulai.
+

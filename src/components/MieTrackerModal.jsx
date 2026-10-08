@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import confetti from 'canvas-confetti';
+import { getMieEligibility } from '../utils/mieUtils';
 
 const MIE_VARIANTS = [
   {
@@ -72,6 +73,7 @@ export default function MieTrackerModal({ isOpen, onClose }) {
 
   const currentQuota = data.mieTracker?.quota ?? 1;
   const historyList = data.mieTracker?.history || [];
+  const mieEligibility = getMieEligibility(data.mieTracker);
 
   const toggleHack = (hackId) => {
     setSelectedHacks((prev) =>
@@ -216,40 +218,61 @@ export default function MieTrackerModal({ isOpen, onClose }) {
         {/* TAB 1: FORM CATAT MAKAN MIE */}
         {activeTab === 'catat' && (
           <div className="flex flex-col gap-3.5">
-            {/* Status Jatah Badge */}
+            {/* Status & Jadwal Kapan Boleh Makan Mie Lagi Banner */}
             <div
-              className={`p-3 rounded-2xl border flex items-center justify-between text-xs ${
-                currentQuota > 0
-                  ? 'bg-secondary-fixed/30 border-secondary/20 text-on-secondary-fixed'
-                  : 'bg-error-container/40 border-error/20 text-on-error-container'
+              className={`p-3.5 rounded-2xl border flex items-start gap-3 transition-all ${
+                mieEligibility.canEatNow
+                  ? 'bg-tertiary-fixed/30 border-tertiary/20'
+                  : 'bg-secondary-fixed/40 border-secondary/30'
               }`}
             >
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[20px]">
-                  {currentQuota > 0 ? 'check_circle' : 'do_not_disturb_on'}
-                </span>
-                <div>
-                  <strong className="block leading-tight">
-                    {currentQuota > 0 ? '1 Jatah Tersedia' : 'Jatah Periode Ini Telah Habis'}
-                  </strong>
-                  <span className="text-[11px] opacity-80">
-                    {currentQuota > 0
-                      ? 'Bunda boleh menikmati 1 porsi mie instan favorit tanpa rasa bersalah 🌸'
-                      : `Terakhir dinikmati pada ${data.mieTracker?.lastEaten || 'periode ini'}.`}
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs sm:text-sm flex-shrink-0 shadow-xs ${
+                  mieEligibility.canEatNow
+                    ? 'bg-tertiary text-on-tertiary'
+                    : 'bg-secondary text-on-secondary'
+                }`}
+              >
+                {mieEligibility.canEatNow ? '✓' : `${mieEligibility.daysRemaining}h`}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[10px] uppercase font-bold text-on-surface-variant tracking-wider">
+                    Jadwal Konsumsi Mie
+                  </span>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      mieEligibility.canEatNow
+                        ? 'bg-tertiary/15 text-tertiary'
+                        : 'bg-secondary/15 text-secondary'
+                    }`}
+                  >
+                    {mieEligibility.badgeText}
                   </span>
                 </div>
-              </div>
+                <strong className="text-xs sm:text-sm font-extrabold text-on-surface block mt-0.5 leading-snug">
+                  {mieEligibility.headline}
+                </strong>
+                <p className="text-[11px] text-on-surface-variant mt-0.5 leading-relaxed">
+                  {mieEligibility.subline}
+                </p>
 
-              {currentQuota <= 0 && (
-                <button
-                  type="button"
-                  onClick={resetMieTracker}
-                  className="px-2.5 py-1.5 rounded-xl bg-surface text-primary font-bold text-[11px] shadow-xs active:scale-95 border border-outline-variant/30 flex items-center gap-1 flex-shrink-0"
-                >
-                  <span className="material-symbols-outlined text-[14px]">restart_alt</span>
-                  <span>Mulai Siklus Baru</span>
-                </button>
-              )}
+                {/* Progress bar jeda 14 hari */}
+                {!mieEligibility.canEatNow && (
+                  <div className="mt-2 flex flex-col gap-1">
+                    <div className="w-full h-2 bg-surface-container rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-secondary rounded-full transition-all duration-500"
+                        style={{ width: `${mieEligibility.progressPercent}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-on-surface-variant font-medium">
+                      <span>Hari ke-{mieEligibility.daysPassed} jeda sehat</span>
+                      <span>Target 14 hari</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {currentQuota > 0 ? (

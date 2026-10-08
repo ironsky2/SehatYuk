@@ -40,13 +40,11 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
   const [dailyCalorieTarget, setDailyCalorieTarget] = useState(1400);
   const [isNursing, setIsNursing] = useState(false);
 
-  // Lock body scroll saat modal aktif untuk mencegah scroll chaining / error scroll background
   useEffect(() => {
     if (isOpen) {
-      const prevOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       return () => {
-        document.body.style.overflow = prevOverflow;
+        document.body.style.overflow = '';
       };
     }
   }, [isOpen]);

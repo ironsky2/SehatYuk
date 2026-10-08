@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { getPrayerTimesForDate } from '../utils/prayerTimes';
 import { calculateCycleInfo } from '../utils/hormoneCycle';
+import { getMieEligibility } from '../utils/mieUtils';
 import CalorieAlertBanner from '../components/CalorieAlertBanner';
 
 export default function DashboardScreen() {
@@ -458,8 +459,7 @@ export default function DashboardScreen() {
             <div className="min-w-0">
               <span className="font-label-sm text-[11px] text-on-surface-variant block">Jatah Mie</span>
               <p className="font-label-lg text-xs text-on-surface font-bold truncate">
-                {(data.mieTracker?.quota ?? 1) > 0 ? 'Sisa 1 Porsi' : '0 Porsi'}{' '}
-                <span className="text-outline text-[10px] font-normal">/ 2 mgg</span>
+                {mieEligibility.canEatNow ? 'Boleh Makan 🍜' : `Lagi: ${mieEligibility.shortDate || `${mieEligibility.daysRemaining}h`}`}
               </p>
             </div>
           </div>

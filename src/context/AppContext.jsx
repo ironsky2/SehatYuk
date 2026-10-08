@@ -825,6 +825,7 @@ export function AppProvider({ children }) {
         quota: 0,
         consumed: (prev.mieTracker.consumed || 0) + 1,
         lastEaten: displayDate,
+        lastEatenDate: localDateStr(),
         history: updatedHistory
       }
     };

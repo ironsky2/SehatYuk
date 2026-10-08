@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { calculateCycleInfo, getCycleDayForDate, getPhaseForCycleDay, parseLocalDate, PHASES } from '../utils/hormoneCycle';
 import confetti from 'canvas-confetti';
@@ -17,6 +17,11 @@ export default function CycleScreen() {
   const [selectedDayDetail, setSelectedDayDetail] = useState(null);
   const [recipeModalOpen, setRecipeModalOpen] = useState(false);
   const [currentMonthOffset, setCurrentMonthOffset] = useState(0);
+
+  // Pastikan body scroll tidak terkunci saat masuk ke halaman siklus
+  useEffect(() => {
+    document.body.style.overflow = '';
+  }, []);
 
   const cycleInfo = calculateCycleInfo(
     data.profile?.hpht,
@@ -93,7 +98,7 @@ export default function CycleScreen() {
   const currentPhase = cycleInfo?.phase || PHASES.FOLIKULER;
 
   return (
-    <div className="flex flex-col w-full gap-4">
+    <div className="flex flex-col w-full gap-4 pb-28 touch-pan-y overscroll-contain">
       {/* Salutation & Gentle Encouragement Banner */}
       <div className="flex items-center justify-between bg-primary-fixed/40 px-4 py-3 rounded-2xl border border-primary/20">
         <div className="flex items-center gap-2.5">
@@ -355,7 +360,7 @@ export default function CycleScreen() {
         </div>
 
         {/* Calendar Grid */}
-        <div className="grid grid-cols-7 gap-1 text-center font-label-md text-xs">
+        <div className="grid grid-cols-7 gap-1 text-center font-label-md text-xs touch-pan-y">
           {calendarCells.map((cell, idx) => {
             if (!cell.isCurrentMonth) {
               return (
@@ -370,8 +375,9 @@ export default function CycleScreen() {
             return (
               <button
                 key={idx}
+                type="button"
                 onClick={() => handleCellClick(cell)}
-                className={`relative py-2 rounded-xl font-bold transition-all active:scale-90 ${
+                className={`relative py-2 rounded-xl font-bold transition-all touch-manipulation select-none active:scale-95 ${
                   isToday
                     ? 'bg-tertiary-container text-on-tertiary font-extrabold shadow-sm ring-2 ring-tertiary-fixed scale-105'
                     : phase?.colorClass || 'bg-surface-container-low text-on-surface-variant/70'

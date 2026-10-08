@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { localDateStr, startOfWeekStr, addDays, parseDateStr } from '../utils/dateUtils';
 import MieTrackerModal from '../components/MieTrackerModal';
+import { getMieEligibility } from '../utils/mieUtils';
 
 export default function ProgressScreen() {
   const {
@@ -371,112 +372,174 @@ export default function ProgressScreen() {
       </div>
 
       {/* F8: Tracker Mie Instan 🍜 */}
-      <div className="rounded-2xl bg-surface-container-lowest p-4 shadow-[0_4px_20px_-2px_rgba(244,63,94,0.06)] border border-outline-variant/30 flex flex-col gap-3">
-        {/* Header Tracker Mie */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-2xl bg-secondary-fixed flex items-center justify-center text-on-secondary-fixed text-lg flex-shrink-0 shadow-xs">
-              🍜
+      {(() => {
+        const mieEligibility = getMieEligibility(data.mieTracker);
+        return (
+          <div className="rounded-2xl bg-surface-container-lowest p-4 shadow-[0_4px_20px_-2px_rgba(244,63,94,0.06)] border border-outline-variant/30 flex flex-col gap-3">
+            {/* Header Tracker Mie */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-2xl bg-secondary-fixed flex items-center justify-center text-on-secondary-fixed text-lg flex-shrink-0 shadow-xs">
+                  🍜
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-headline-sm text-sm text-on-surface font-bold truncate">
+                    Tracker Mie Instan 🍜
+                  </h3>
+                  <p className="font-label-sm text-[11px] text-on-surface-variant truncate">
+                    Siklus 2 Mingguan ({data.mieTracker?.period || 'Periode Berjalan'})
+                  </p>
+                </div>
+              </div>
+              <span
+                className={`font-label-sm text-xs px-2.5 py-0.5 rounded-full font-bold flex-shrink-0 flex items-center gap-1 shadow-xs ${
+                  (data.mieTracker?.quota ?? 1) > 0
+                    ? 'bg-tertiary-fixed text-on-tertiary-fixed'
+                    : 'bg-error-container text-on-error-container'
+                }`}
+              >
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    (data.mieTracker?.quota ?? 1) > 0 ? 'bg-tertiary animate-pulse' : 'bg-error'
+                  }`}
+                />
+                {(data.mieTracker?.quota ?? 1) > 0 ? '1 Jatah Tersedia' : 'Jatah Habis ⛔'}
+              </span>
             </div>
-            <div className="min-w-0">
-              <h3 className="font-headline-sm text-sm text-on-surface font-bold truncate">
-                Tracker Mie Instan 🍜
-              </h3>
-              <p className="font-label-sm text-[11px] text-on-surface-variant truncate">
-                Siklus 2 Mingguan ({data.mieTracker?.period || 'Periode Berjalan'})
-              </p>
-            </div>
-          </div>
-          <span
-            className={`font-label-sm text-xs px-2.5 py-0.5 rounded-full font-bold flex-shrink-0 flex items-center gap-1 shadow-xs ${
-              (data.mieTracker?.quota ?? 1) > 0
-                ? 'bg-tertiary-fixed text-on-tertiary-fixed'
-                : 'bg-error-container text-on-error-container'
-            }`}
-          >
-            <span
-              className={`w-2 h-2 rounded-full ${
-                (data.mieTracker?.quota ?? 1) > 0 ? 'bg-tertiary animate-pulse' : 'bg-error'
+
+            {/* Banner Jadwal: KAPAN BOLEH MAKAN MIE LAGI */}
+            <div
+              className={`p-3.5 rounded-2xl border flex items-start gap-3 transition-all ${
+                mieEligibility.canEatNow
+                  ? 'bg-tertiary-fixed/30 border-tertiary/20'
+                  : 'bg-secondary-fixed/40 border-secondary/30'
               }`}
-            />
-            {(data.mieTracker?.quota ?? 1) > 0 ? '1 Jatah Tersedia' : 'Jatah Habis ⛔'}
-          </span>
-        </div>
+            >
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs sm:text-sm flex-shrink-0 shadow-xs ${
+                  mieEligibility.canEatNow
+                    ? 'bg-tertiary text-on-tertiary'
+                    : 'bg-secondary text-on-secondary'
+                }`}
+              >
+                {mieEligibility.canEatNow ? '✓' : `${mieEligibility.daysRemaining}h`}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[10px] uppercase font-bold text-on-surface-variant tracking-wider">
+                    Jadwal Konsumsi Mie
+                  </span>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      mieEligibility.canEatNow
+                        ? 'bg-tertiary/15 text-tertiary'
+                        : 'bg-secondary/15 text-secondary'
+                    }`}
+                  >
+                    {mieEligibility.badgeText}
+                  </span>
+                </div>
+                <strong className="text-xs sm:text-sm font-extrabold text-on-surface block mt-0.5 leading-snug">
+                  {mieEligibility.headline}
+                </strong>
+                <p className="text-[11px] text-on-surface-variant mt-0.5 leading-relaxed">
+                  {mieEligibility.subline}
+                </p>
 
-        {/* Rule & Detailed Status Info Card */}
-        <div className="p-3.5 rounded-2xl bg-surface-container-low flex flex-col gap-2.5 border border-outline-variant/20">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[18px] text-tertiary">verified_user</span>
-              <span className="font-label-md text-xs text-on-surface font-bold">
-                Aturan Jatah Bijak 2 Mingguan
-              </span>
+                {/* Progress bar 14 hari jeda */}
+                {!mieEligibility.canEatNow && (
+                  <div className="mt-2 flex flex-col gap-1">
+                    <div className="w-full h-2 bg-surface-container rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-secondary rounded-full transition-all duration-500"
+                        style={{ width: `${mieEligibility.progressPercent}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-on-surface-variant font-medium">
+                      <span>Hari ke-{mieEligibility.daysPassed} jeda</span>
+                      <span>Target 14 hari</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-            <span className="text-[10px] font-bold text-primary px-2 py-0.5 rounded-full bg-primary/10">
-              {(data.mieTracker?.history?.length || 0)} Total Tercatat
-            </span>
-          </div>
 
-          <p className="font-body-sm text-xs text-on-surface-variant leading-relaxed">
-            Maksimal 1 porsi per 2 minggu demi menjaga defisit kalori & kadar natrium tubuh tetap stabil tanpa merasa terkekang.
-          </p>
-
-          <div className="pt-2 flex flex-col gap-1 border-t border-surface-container font-label-sm text-[11px]">
-            <div className="flex items-center justify-between">
-              <span className="text-outline">Terakhir dinikmati:</span>
-              <span className="font-bold text-on-surface">
-                {data.mieTracker?.lastEaten || 'Belum pernah dicatat'}
-              </span>
-            </div>
-
-            {/* Jika ada riwayat terakhir, tampilkan detail menunya */}
-            {data.mieTracker?.history?.[0] && (
-              <div className="flex items-center justify-between text-secondary">
-                <span>Menu terakhir:</span>
-                <span className="font-semibold text-right truncate max-w-[180px]">
-                  {data.mieTracker.history[0].variety} ({data.mieTracker.history[0].calories} kkal)
+            {/* Rule & Detailed Status Info Card */}
+            <div className="p-3.5 rounded-2xl bg-surface-container-low flex flex-col gap-2.5 border border-outline-variant/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[18px] text-tertiary">verified_user</span>
+                  <span className="font-label-md text-xs text-on-surface font-bold">
+                    Aturan Jatah Bijak 2 Mingguan
+                  </span>
+                </div>
+                <span className="text-[10px] font-bold text-primary px-2 py-0.5 rounded-full bg-primary/10">
+                  {(data.mieTracker?.history?.length || 0)} Total Tercatat
                 </span>
               </div>
-            )}
+
+              <p className="font-body-sm text-xs text-on-surface-variant leading-relaxed">
+                Maksimal 1 porsi per 2 minggu demi menjaga defisit kalori & kadar natrium tubuh tetap stabil tanpa merasa terkekang.
+              </p>
+
+              <div className="pt-2 flex flex-col gap-1 border-t border-surface-container font-label-sm text-[11px]">
+                <div className="flex items-center justify-between">
+                  <span className="text-outline">Terakhir dinikmati:</span>
+                  <span className="font-bold text-on-surface">
+                    {data.mieTracker?.lastEaten || 'Belum pernah dicatat'}
+                  </span>
+                </div>
+
+                {/* Jika ada riwayat terakhir, tampilkan detail menunya */}
+                {data.mieTracker?.history?.[0] && (
+                  <div className="flex items-center justify-between text-secondary">
+                    <span>Menu terakhir:</span>
+                    <span className="font-semibold text-right truncate max-w-[180px]">
+                      {data.mieTracker.history[0].variety} ({data.mieTracker.history[0].calories} kkal)
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons Row */}
+            <div className="flex flex-col gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  onClick={handleConsumeMieClick}
+                  disabled={(data.mieTracker?.quota ?? 1) <= 0}
+                  className={`py-2.5 px-3.5 rounded-xl font-label-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                    (data.mieTracker?.quota ?? 1) > 0
+                      ? 'bg-secondary-fixed text-on-secondary-fixed active:scale-[0.98] cursor-pointer shadow-xs hover:bg-secondary-fixed/80'
+                      : 'bg-surface-container text-on-surface-variant/60 cursor-not-allowed opacity-60'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[18px]">soup_kitchen</span>
+                  <span>{(data.mieTracker?.quota ?? 1) > 0 ? 'Catat Makan Mie 🍜' : 'Jatah Sudah Dipakai'}</span>
+                </button>
+
+                <button
+                  onClick={() => setMieModalOpen(true)}
+                  className="py-2.5 px-3.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-label-lg text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all border border-outline-variant/20"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-primary">format_list_bulleted</span>
+                  <span>Lihat Detail & Riwayat</span>
+                </button>
+              </div>
+
+              {(data.mieTracker?.quota ?? 1) <= 0 && (
+                <button
+                  onClick={resetMieTracker}
+                  className="w-full py-2 px-3 rounded-xl bg-surface-container-low text-primary text-xs font-semibold hover:bg-surface-container flex items-center justify-center gap-1 active:scale-95 transition-all border border-outline-variant/20"
+                >
+                  <span className="material-symbols-outlined text-[16px]">restart_alt</span>
+                  <span>Mulai Siklus 2 Minggu Baru (Reset Kuota)</span>
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-
-        {/* Action Buttons Row */}
-        <div className="flex flex-col gap-2">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <button
-              onClick={handleConsumeMieClick}
-              disabled={(data.mieTracker?.quota ?? 1) <= 0}
-              className={`py-2.5 px-3.5 rounded-xl font-label-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                (data.mieTracker?.quota ?? 1) > 0
-                  ? 'bg-secondary-fixed text-on-secondary-fixed active:scale-[0.98] cursor-pointer shadow-xs hover:bg-secondary-fixed/80'
-                  : 'bg-surface-container text-on-surface-variant/60 cursor-not-allowed opacity-60'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[18px]">soup_kitchen</span>
-              <span>{(data.mieTracker?.quota ?? 1) > 0 ? 'Catat Makan Mie 🍜' : 'Jatah Sudah Dipakai'}</span>
-            </button>
-
-            <button
-              onClick={() => setMieModalOpen(true)}
-              className="py-2.5 px-3.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-label-lg text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all border border-outline-variant/20"
-            >
-              <span className="material-symbols-outlined text-[18px] text-primary">format_list_bulleted</span>
-              <span>Lihat Detail & Riwayat</span>
-            </button>
-          </div>
-
-          {(data.mieTracker?.quota ?? 1) <= 0 && (
-            <button
-              onClick={resetMieTracker}
-              className="w-full py-2 px-3 rounded-xl bg-surface-container-low text-primary text-xs font-semibold hover:bg-surface-container flex items-center justify-center gap-1 active:scale-95 transition-all border border-outline-variant/20"
-            >
-              <span className="material-symbols-outlined text-[16px]">restart_alt</span>
-              <span>Mulai Siklus 2 Minggu Baru (Reset Kuota)</span>
-            </button>
-          )}
-        </div>
-      </div>
+        );
+      })()}
 
       {/* F7: Ringkasan Olahraga Mingguan */}
       <div className="rounded-2xl bg-surface-container-lowest p-4 shadow-[0_4px_20px_-2px_rgba(244,63,94,0.06)] border border-outline-variant/30 flex flex-col gap-3">

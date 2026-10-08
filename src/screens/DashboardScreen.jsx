@@ -73,7 +73,12 @@ export default function DashboardScreen() {
   }, [prayerTimes]);
 
   // Hormone cycle calculations
-  const cycleInfo = calculateCycleInfo(data.profile.hpht, data.profile.cycleLength);
+  const cycleInfo = calculateCycleInfo(
+    data.profile?.hpht,
+    data.profile?.cycleLength,
+    new Date(),
+    data.profile?.periodDuration
+  );
 
   // Calorie calculations
   const caloriePercent = Math.round((totalCalories / calorieTarget) * 100);
@@ -453,7 +458,7 @@ export default function DashboardScreen() {
             <div className="min-w-0">
               <span className="font-label-sm text-[11px] text-on-surface-variant block">Jatah Mie</span>
               <p className="font-label-lg text-xs text-on-surface font-bold truncate">
-                {data.mieTracker.quota > 0 ? 'Sisa 1 Porsi' : '0 Porsi'}{' '}
+                {(data.mieTracker?.quota ?? 1) > 0 ? 'Sisa 1 Porsi' : '0 Porsi'}{' '}
                 <span className="text-outline text-[10px] font-normal">/ 2 mgg</span>
               </p>
             </div>

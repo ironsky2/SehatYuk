@@ -53,7 +53,8 @@ const defaultState = {
     quota: 1,
     consumed: 0,
     period: 'Periode Berjalan',
-    lastEaten: null
+    lastEaten: null,
+    history: []
   },
   weightLogs: [],
   fastingMode: 'sunnah', // 'sunnah' or 'if'
@@ -97,7 +98,11 @@ function normalizeData(parsed) {
       periodDuration: Number(parsed?.profile?.periodDuration) || 7,
       cycleLength: Number(parsed?.profile?.cycleLength) || 28
     },
-    mieTracker: { ...defaultState.mieTracker, ...(parsed?.mieTracker || {}) },
+    mieTracker: {
+      ...defaultState.mieTracker,
+      ...(parsed?.mieTracker || {}),
+      history: Array.isArray(parsed?.mieTracker?.history) ? parsed.mieTracker.history : []
+    },
     notifications: { ...defaultState.notifications, ...(parsed?.notifications || {}) },
     meals,
     exercises: Array.isArray(parsed?.exercises) ? parsed.exercises : [],
@@ -754,23 +759,96 @@ export function AppProvider({ children }) {
     commitState(nextState, true);
   };
 
-  const consumeMie = () => {
+  const consumeMie = (details = {}) => {
     const prev = rawDataRef.current || defaultState;
     if (prev.mieTracker.quota <= 0) {
       alert('⛔ Jatah mie periode ini sudah habis! Tahan dulu ya Bunda 💪');
       return false;
     }
+
+    const now = new Date();
+    const displayDate = now.toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+    const displayTime = now.toLocaleTimeString('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    const variety = details.variety || 'Indomie Goreng Original';
+    const calories = Number(details.calories) || 380;
+    const sodiumMg = Number(details.sodiumMg) || 1070;
+    const addons = Array.isArray(details.addons) ? details.addons : [];
+    const hacks = Array.isArray(details.hacks) ? details.hacks : [];
+
+    const logEntry = {
+      id: String(Date.now()),
+      date: localDateStr(),
+      displayDate,
+      displayTime,
+      variety,
+      calories,
+      sodiumMg,
+      addons,
+      hacks,
+      notes: details.notes || ''
+    };
+
+    const updatedHistory = [logEntry, ...(prev.mieTracker.history || [])];
+
+    let nextMeals = prev.meals || [];
+    if (details.logToMeals !== false) {
+      const mealEntry = {
+        id: String(Date.now()),
+        name: `${variety} 🍜 (Jatah 2 Mingguan)`,
+        calories,
+        timeCategory: details.timeCategory || 'makanSiang',
+        portionMultiplier: 1.0,
+        portionName: '1 Porsi Lengkap',
+        date: localDateStr(),
+        macros: {
+          carbs: Math.round((calories * 0.55) / 4),
+          protein: addons.some((a) => a.toLowerCase().includes('telur')) ? 16 : 8,
+          fat: Math.round((calories * 0.35) / 9)
+        }
+      };
+      nextMeals = [...nextMeals, mealEntry];
+    }
+
     const nextState = {
       ...prev,
+      meals: nextMeals,
       mieTracker: {
         ...prev.mieTracker,
         quota: 0,
         consumed: (prev.mieTracker.consumed || 0) + 1,
-        lastEaten: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+        lastEaten: displayDate,
+        history: updatedHistory
       }
     };
     commitState(nextState, true);
     return true;
+  };
+
+  const deleteMieLog = (logId) => {
+    const prev = rawDataRef.current || defaultState;
+    const filteredHistory = (prev.mieTracker.history || []).filter((item) => item.id !== logId);
+    const lastItem = filteredHistory[0];
+
+    const nextState = {
+      ...prev,
+      mieTracker: {
+        ...prev.mieTracker,
+        consumed: Math.max(0, (prev.mieTracker.consumed || 1) - 1),
+        quota: filteredHistory.length === 0 ? 1 : prev.mieTracker.quota,
+        lastEaten: lastItem ? lastItem.displayDate : 'Belum ada',
+        history: filteredHistory
+      }
+    };
+    commitState(nextState, true);
+    showNotification('Catatan Dihapus 🗑️', 'Riwayat makan mie berhasil diperbarui.');
   };
 
   const resetMieTracker = () => {
@@ -781,9 +859,12 @@ export function AppProvider({ children }) {
     const nextState = {
       ...prev,
       mieTracker: {
+        ...prev.mieTracker,
         quota: 1,
         consumed: 0,
         period: periodStr,
+        startDate: today.toISOString(),
+        endDate: twoWeeksLater.toISOString(),
         lastEaten: prev.mieTracker.lastEaten || 'Belum ada'
       }
     };
@@ -1097,6 +1178,7 @@ export function AppProvider({ children }) {
         addWaterGlass,
         resetWater,
         consumeMie,
+        deleteMieLog,
         resetMieTracker,
         addWeightLog,
         addExercise,

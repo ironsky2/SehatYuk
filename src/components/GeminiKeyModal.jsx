@@ -107,15 +107,30 @@ export default function GeminiKeyModal({ isOpen, onClose, onKeySaved }) {
           </button>
         </div>
 
-        {/* Petunjuk Praktis */}
+        {/* Status Default Aktif */}
+        <div className="bg-secondary-fixed/30 rounded-2xl p-3 flex items-start gap-2.5 border border-secondary/20">
+          <span className="material-symbols-outlined text-[20px] text-secondary flex-shrink-0 mt-0.5">
+            verified
+          </span>
+          <div className="text-xs">
+            <span className="font-bold text-on-secondary-fixed block mb-0.5">
+              Gemini AI Sudah Terintegrasi & Aktif Otomatis!
+            </span>
+            <p className="text-on-secondary-fixed-variant leading-relaxed text-[11px]">
+              Bunda tidak perlu memasukkan kunci apapun untuk menggunakan fitur hitung kalori & foto makanan. Fitur AI sudah siap pakai secara instan 🌸
+            </p>
+          </div>
+        </div>
+
+        {/* Petunjuk Praktis Kustom (Opsional) */}
         <div className="bg-surface-container-low rounded-2xl p-3.5 flex flex-col gap-2 border border-outline-variant/20">
           <div className="flex items-center gap-1.5 text-primary font-bold text-xs">
             <span className="material-symbols-outlined text-[16px]">info</span>
-            <span>Cara Mendapatkan API Key Gratis (1 Menit):</span>
+            <span>(Opsional) Sambungkan Kunci Cloud Mandiri:</span>
           </div>
-          <ol className="list-decimal list-inside font-body-sm text-xs text-on-surface-variant space-y-1.5 pl-1 leading-relaxed">
+          <ol className="list-decimal list-inside font-body-sm text-[11px] text-on-surface-variant space-y-1 pl-1 leading-relaxed">
             <li>
-              Buka situs resmi{' '}
+              Buka situs{' '}
               <a
                 href="https://aistudio.google.com/app/apikey"
                 target="_blank"
@@ -126,11 +141,11 @@ export default function GeminiKeyModal({ isOpen, onClose, onKeySaved }) {
                 <span className="material-symbols-outlined text-[12px]">open_in_new</span>
               </a>
             </li>
-            <li>Login dengan akun Google (Gmail) Bunda</li>
-            <li>Klik tombol <strong>"Create API Key"</strong> lalu salin kuncinya ke bawah ini</li>
+            <li>Login akun Google & klik <strong>"Create API Key"</strong></li>
+            <li>Salin kodenya yang diawali dengan huruf <code>AIzaSy...</code></li>
           </ol>
-          <span className="text-[11px] text-tertiary font-medium">
-            💡 Tier gratis Gemini memberikan kuota harian ribuan analisis tanpa biaya sepeserpun.
+          <span className="text-[11px] text-amber-700 bg-amber-50 dark:bg-amber-950/30 p-2 rounded-lg border border-amber-200/50">
+            ⚠️ <strong>Catatan:</strong> File Google OAuth seperti <code>client_secret_....json</code> bukan API Key. Gunakan API Key yang berawalan <code>AIzaSy...</code> dari Google AI Studio.
           </span>
         </div>
 

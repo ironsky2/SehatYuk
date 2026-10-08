@@ -59,11 +59,6 @@ export default function AiCalorieInput({ activeMealTab, onSaveMeal, selectedDate
       return;
     }
 
-    if (!hasGeminiApiKey()) {
-      setIsKeyModalOpen(true);
-      return;
-    }
-
     setIsAnalyzing(true);
     setErrorMessage('');
 
@@ -76,15 +71,8 @@ export default function AiCalorieInput({ activeMealTab, onSaveMeal, selectedDate
 
       setAnalysisResult(result);
     } catch (err) {
-      console.error('AI Analysis failed:', err);
-      if (err.message === 'KEY_MISSING' || err.message === 'KEY_INVALID') {
-        setErrorMessage('Kunci Google Gemini API belum disetel atau tidak valid. Silakan pasang kunci di bawah.');
-        setIsKeyModalOpen(true);
-      } else if (err.message === 'QUOTA_EXCEEDED') {
-        setErrorMessage('Kuota gratis harian Gemini telah tercapai. Bunda bisa menunggu sejenak atau beralih ke input manual.');
-      } else {
-        setErrorMessage(err.message || 'Gagal menghitung kalori dengan AI. Periksa koneksi internet Bunda.');
-      }
+      console.error('AI Analysis error:', err);
+      setErrorMessage(err.message || 'Gagal menghitung kalori dengan AI. Periksa kembali input Bunda ya.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -120,28 +108,25 @@ export default function AiCalorieInput({ activeMealTab, onSaveMeal, selectedDate
 
   return (
     <div className="flex flex-col gap-3.5">
-      {/* Status Bar API Key */}
-      <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-surface-container-low border border-outline-variant/20 text-xs">
-        <div className="flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-primary text-[18px]">neurology</span>
-          <span className="font-semibold text-on-surface">
-            Google Gemini Vision AI
-          </span>
+      {/* Status Bar Gemini AI Terintegrasi Langsung */}
+      <div className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl bg-gradient-to-r from-primary/10 via-secondary/5 to-primary/5 border border-primary/20 text-xs">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-primary/15 text-primary flex items-center justify-center">
+            <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+          </div>
+          <div>
+            <span className="font-bold text-on-surface block leading-tight">
+              Gemini AI Terintegrasi Langsung
+            </span>
+            <span className="text-[10px] text-on-surface-variant">
+              Kalkulator kalori cerdas siap pakai tanpa perlu masukkan kunci
+            </span>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setIsKeyModalOpen(true)}
-          className={`flex items-center gap-1 font-bold text-[11px] px-2.5 py-1 rounded-lg transition-all ${
-            keyConfigured
-              ? 'bg-secondary-fixed text-on-secondary-fixed hover:bg-secondary-fixed/80'
-              : 'bg-primary text-on-primary hover:bg-primary/90'
-          }`}
-        >
-          <span className="material-symbols-outlined text-[14px]">
-            {keyConfigured ? 'verified' : 'key'}
-          </span>
-          <span>{keyConfigured ? 'API Key Terpasang' : 'Pasang Kunci AI'}</span>
-        </button>
+        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-primary bg-primary-fixed/40 px-2.5 py-1 rounded-full border border-primary/20">
+          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+          Aktif
+        </span>
       </div>
 
       {/* Input Deskripsi Bebas */}
@@ -254,15 +239,6 @@ export default function AiCalorieInput({ activeMealTab, onSaveMeal, selectedDate
           <span className="material-symbols-outlined text-[18px] flex-shrink-0">warning</span>
           <div className="flex-1 leading-snug">
             <span>{errorMessage}</span>
-            {!keyConfigured && (
-              <button
-                type="button"
-                onClick={() => setIsKeyModalOpen(true)}
-                className="block mt-1 font-bold text-primary underline"
-              >
-                Atur API Key Gratis Sekarang
-              </button>
-            )}
           </div>
         </div>
       )}

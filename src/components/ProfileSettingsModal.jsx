@@ -488,33 +488,30 @@ export default function ProfileSettingsModal({ isOpen, onClose }) {
           ) : (
             /* TAB 2: Kunci AI & Cloud Settings */
             <div className="space-y-3.5 pb-2">
-              {/* Konfigurasi Gemini API Key */}
+              {/* Konfigurasi Gemini AI Terintegrasi */}
               <div className="p-3.5 rounded-2xl bg-surface-container-low border border-outline-variant/20 space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary text-[20px]">smart_toy</span>
+                    <span className="material-symbols-outlined text-primary text-[20px]">auto_awesome</span>
                     <span className="font-label-sm text-xs font-bold text-on-surface">
-                      Kunci Google Gemini AI
+                      Gemini AI Nutrition Scanner
                     </span>
                   </div>
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      keyConfigured ? 'bg-secondary/15 text-secondary' : 'bg-outline-variant/30 text-outline'
-                    }`}
-                  >
-                    {keyConfigured ? 'Aktif' : 'Belum Ada'}
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-secondary/15 text-secondary flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                    Aktif Terintegrasi
                   </span>
                 </div>
                 <p className="font-body-sm text-[11px] text-on-surface-variant leading-snug">
-                  Digunakan untuk menghitung kalori makanan via AI teks dan foto tanpa batas.
+                  Fitur kalkulasi kalori & analisis foto piring makanan sudah aktif langsung tanpa perlu memasukkan API key.
                 </p>
                 <button
                   type="button"
                   onClick={() => setIsKeyModalOpen(true)}
-                  className="w-full py-2.5 px-3 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                  className="w-full py-2 px-3 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-semibold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all border border-outline-variant/20"
                 >
-                  <span className="material-symbols-outlined text-[16px]">key</span>
-                  <span>{keyConfigured ? 'Kelola Kunci Gemini' : 'Pasang Kunci Gemini Gratis'}</span>
+                  <span className="material-symbols-outlined text-[15px]">tune</span>
+                  <span>(Opsional) Pengaturan API Key Kustom</span>
                 </button>
               </div>
 

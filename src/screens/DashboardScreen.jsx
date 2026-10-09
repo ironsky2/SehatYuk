@@ -81,6 +81,9 @@ export default function DashboardScreen() {
     data.profile?.periodDuration
   );
 
+  // Mie eligibility calculations
+  const mieEligibility = getMieEligibility(data.mieTracker);
+
   // Calorie calculations
   const caloriePercent = Math.round((totalCalories / calorieTarget) * 100);
   const remainingCalories = Math.max(calorieTarget - totalCalories, 0);

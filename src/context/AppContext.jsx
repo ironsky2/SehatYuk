@@ -766,13 +766,25 @@ export function AppProvider({ children }) {
       return false;
     }
 
-    const now = new Date();
-    const displayDate = now.toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
-    const displayTime = now.toLocaleTimeString('id-ID', {
+    const targetDateStr = details.date || localDateStr();
+    const parts = String(targetDateStr).split('-');
+    let parsedDate = new Date();
+    if (parts.length === 3) {
+      parsedDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    }
+    const displayDate = !isNaN(parsedDate.getTime())
+      ? parsedDate.toLocaleDateString('id-ID', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric'
+        })
+      : new Date().toLocaleDateString('id-ID', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric'
+        });
+
+    const displayTime = new Date().toLocaleTimeString('id-ID', {
       hour: '2-digit',
       minute: '2-digit'
     });
@@ -785,7 +797,7 @@ export function AppProvider({ children }) {
 
     const logEntry = {
       id: String(Date.now()),
-      date: localDateStr(),
+      date: targetDateStr,
       displayDate,
       displayTime,
       variety,
@@ -796,7 +808,9 @@ export function AppProvider({ children }) {
       notes: details.notes || ''
     };
 
-    const updatedHistory = [logEntry, ...(prev.mieTracker.history || [])];
+    const updatedHistory = [logEntry, ...(prev.mieTracker.history || [])].sort((a, b) =>
+      String(b.date || '').localeCompare(String(a.date || '')) || (Number(b.id) || 0) - (Number(a.id) || 0)
+    );
 
     let nextMeals = prev.meals || [];
     if (details.logToMeals !== false) {
@@ -807,7 +821,7 @@ export function AppProvider({ children }) {
         timeCategory: details.timeCategory || 'makanSiang',
         portionMultiplier: 1.0,
         portionName: '1 Porsi Lengkap',
-        date: localDateStr(),
+        date: targetDateStr,
         macros: {
           carbs: Math.round((calories * 0.55) / 4),
           protein: addons.some((a) => a.toLowerCase().includes('telur')) ? 16 : 8,
@@ -817,6 +831,8 @@ export function AppProvider({ children }) {
       nextMeals = [...nextMeals, mealEntry];
     }
 
+    const newestLog = updatedHistory[0] || logEntry;
+
     const nextState = {
       ...prev,
       meals: nextMeals,
@@ -824,8 +840,8 @@ export function AppProvider({ children }) {
         ...prev.mieTracker,
         quota: 0,
         consumed: (prev.mieTracker.consumed || 0) + 1,
-        lastEaten: displayDate,
-        lastEatenDate: localDateStr(),
+        lastEaten: newestLog.displayDate || displayDate,
+        lastEatenDate: newestLog.date || targetDateStr,
         history: updatedHistory
       }
     };
@@ -845,6 +861,7 @@ export function AppProvider({ children }) {
         consumed: Math.max(0, (prev.mieTracker.consumed || 1) - 1),
         quota: filteredHistory.length === 0 ? 1 : prev.mieTracker.quota,
         lastEaten: lastItem ? lastItem.displayDate : 'Belum ada',
+        lastEatenDate: lastItem ? lastItem.date : null,
         history: filteredHistory
       }
     };

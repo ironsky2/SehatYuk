@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import confetti from 'canvas-confetti';
 import { getMieEligibility } from '../utils/mieUtils';
+import { localDateStr } from '../utils/dateUtils';
 
 const MIE_VARIANTS = [
   {
@@ -62,12 +63,24 @@ export default function MieTrackerModal({ isOpen, onClose }) {
   const { data, consumeMie, deleteMieLog, resetMieTracker, addWaterGlass, showNotification } = useApp();
 
   const [activeTab, setActiveTab] = useState('catat'); // 'catat' | 'riwayat' | 'edukasi'
+  const [consumedDate, setConsumedDate] = useState(localDateStr());
   const [selectedVariant, setSelectedVariant] = useState(MIE_VARIANTS[0]);
   const [customVariantName, setCustomVariantName] = useState('');
   const [selectedHacks, setSelectedHacks] = useState(['telur', 'sayur', 'bumbu_separuh']);
   const [mealTimeCategory, setMealTimeCategory] = useState('makanSiang');
   const [logToMeals, setLogToMeals] = useState(true);
   const [notes, setNotes] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -104,6 +117,7 @@ export default function MieTrackerModal({ isOpen, onClose }) {
     const varietyTitle = customVariantName.trim() || selectedVariant.name;
 
     const ok = consumeMie({
+      date: consumedDate,
       variety: varietyTitle,
       brand: selectedVariant.brand,
       calories: calculatedCalories,
@@ -123,7 +137,7 @@ export default function MieTrackerModal({ isOpen, onClose }) {
       });
       showNotification(
         'Makan Mie Tercatat 🍜',
-        `${varietyTitle} (~${calculatedCalories} kkal) tersimpan. Kuota 2 mingguan telah dipotong.`
+        `${varietyTitle} (~${calculatedCalories} kkal) pada ${consumedDate} tersimpan. Kuota 2 mingguan telah dipotong.`
       );
       setActiveTab('riwayat');
     }
@@ -137,11 +151,11 @@ export default function MieTrackerModal({ isOpen, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in"
+      className="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto animate-in fade-in"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-surface-container-lowest rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl flex flex-col gap-4 border border-outline-variant/30 max-h-[92vh] overflow-y-auto"
+        className="w-full max-w-lg bg-surface-container-lowest rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl flex flex-col gap-4 border border-outline-variant/30 my-auto max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Modal */}
@@ -391,33 +405,48 @@ export default function MieTrackerModal({ isOpen, onClose }) {
                   </div>
                 </div>
 
-                {/* 4. Pengaturan Tambahan */}
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <label className="font-medium text-on-surface-variant block mb-1">
-                      Waktu Santap:
-                    </label>
-                    <select
-                      value={mealTimeCategory}
-                      onChange={(e) => setMealTimeCategory(e.target.value)}
-                      className="w-full p-2 rounded-xl bg-surface-container-low text-on-surface border border-outline-variant/20"
-                    >
-                      <option value="sarapan">Sarapan Pagi</option>
-                      <option value="makanSiang">Makan Siang</option>
-                      <option value="makanMalam">Makan Malam</option>
-                      <option value="camilan">Camilan / Takjil</option>
-                    </select>
+                {/* 4. Pengaturan Tanggal & Waktu */}
+                <div className="flex flex-col gap-2.5 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="font-medium text-on-surface-variant block mb-1">
+                        📅 Tanggal Santap Mie:
+                      </label>
+                      <input
+                        type="date"
+                        value={consumedDate}
+                        max={localDateStr()}
+                        onChange={(e) => setConsumedDate(e.target.value)}
+                        className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface border border-outline-variant/20 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-medium text-on-surface-variant block mb-1">
+                        ⏰ Waktu Santap:
+                      </label>
+                      <select
+                        value={mealTimeCategory}
+                        onChange={(e) => setMealTimeCategory(e.target.value)}
+                        className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface border border-outline-variant/20 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      >
+                        <option value="sarapan">Sarapan Pagi</option>
+                        <option value="makanSiang">Makan Siang</option>
+                        <option value="makanMalam">Makan Malam</option>
+                        <option value="camilan">Camilan / Takjil</option>
+                      </select>
+                    </div>
                   </div>
-                  <div className="flex items-end pb-1">
+
+                  <div className="pt-0.5">
                     <label className="flex items-center gap-2 cursor-pointer text-on-surface font-medium select-none">
                       <input
                         type="checkbox"
                         checked={logToMeals}
                         onChange={(e) => setLogToMeals(e.target.checked)}
-                        className="rounded text-primary"
+                        className="rounded text-primary focus:ring-0"
                       />
-                      <span className="text-[11px] leading-tight">
-                        Catat ke Menu Makan Hari Ini (Tab Makan)
+                      <span className="text-[11px] leading-tight text-on-surface-variant">
+                        Catat otomatis ke riwayat menu makan (Tab Makan) pada tanggal yang dipilih
                       </span>
                     </label>
                   </div>
@@ -429,7 +458,7 @@ export default function MieTrackerModal({ isOpen, onClose }) {
                   className="w-full py-3 bg-gradient-to-r from-primary to-primary-container text-on-primary rounded-xl font-bold text-xs shadow-md active:scale-98 transition-all flex items-center justify-center gap-2"
                 >
                   <span className="material-symbols-outlined text-[18px]">ramen_dining</span>
-                  <span>Saya Makan Mie Sekarang (Simpan & Potong Jatah)</span>
+                  <span>Simpan Catatan Makan Mie 🍜</span>
                 </button>
               </form>
             ) : (

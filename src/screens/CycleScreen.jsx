@@ -18,10 +18,26 @@ export default function CycleScreen() {
   const [recipeModalOpen, setRecipeModalOpen] = useState(false);
   const [currentMonthOffset, setCurrentMonthOffset] = useState(0);
 
-  // Pastikan body scroll tidak terkunci saat masuk ke halaman siklus
+  // Pastikan body scroll dikunci saat modal terbuka dan dilepas saat ditutup
   useEffect(() => {
-    document.body.style.overflow = '';
-  }, []);
+    if (hphtModalOpen || selectedDayDetail || recipeModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [hphtModalOpen, selectedDayDetail, recipeModalOpen]);
+
+  // Sinkronisasi data form saat modal HPHT dibuka
+  useEffect(() => {
+    if (hphtModalOpen) {
+      if (data.profile?.hpht) setNewHpht(data.profile.hpht);
+      if (data.profile?.cycleLength) setNewCycleLength(data.profile.cycleLength);
+      if (data.profile?.periodDuration) setNewPeriodDuration(data.profile.periodDuration);
+    }
+  }, [hphtModalOpen, data.profile]);
 
   const cycleInfo = calculateCycleInfo(
     data.profile?.hpht,
@@ -98,7 +114,7 @@ export default function CycleScreen() {
   const currentPhase = cycleInfo?.phase || PHASES.FOLIKULER;
 
   return (
-    <div className="flex flex-col w-full gap-4 pb-28 touch-pan-y overscroll-contain">
+    <div className="flex flex-col w-full gap-4 pb-28">
       {/* Salutation & Gentle Encouragement Banner */}
       <div className="flex items-center justify-between bg-primary-fixed/40 px-4 py-3 rounded-2xl border border-primary/20">
         <div className="flex items-center gap-2.5">
@@ -444,8 +460,16 @@ export default function CycleScreen() {
 
       {/* Selected Day Inspector Modal */}
       {selectedDayDetail && (
-        <div className="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-surface-container-lowest rounded-2xl p-5 max-w-sm w-full shadow-2xl flex flex-col gap-3 border border-outline-variant/30">
+        <div
+          className="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedDayDetail(null);
+          }}
+        >
+          <div
+            className="bg-surface-container-lowest rounded-2xl p-5 max-w-sm w-full shadow-2xl flex flex-col gap-3 border border-outline-variant/30 my-auto max-h-[88vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b pb-2">
               <div className="flex items-center gap-2">
                 <span className="text-2xl">{selectedDayDetail.phase?.emoji || '📅'}</span>
@@ -461,6 +485,7 @@ export default function CycleScreen() {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedDayDetail(null)}
                 className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container"
               >
@@ -488,6 +513,7 @@ export default function CycleScreen() {
                   Silakan catat tanggal HPHT Bunda terlebih dahulu agar perkiraan fase hormon pada tanggal ini dapat dihitung.
                 </p>
                 <button
+                  type="button"
                   onClick={() => {
                     setSelectedDayDetail(null);
                     setHphtModalOpen(true);
@@ -499,6 +525,7 @@ export default function CycleScreen() {
               </div>
             )}
             <button
+              type="button"
               onClick={() => setSelectedDayDetail(null)}
               className="mt-1 w-full py-2.5 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-full font-label-md text-xs font-bold shadow-xs active:scale-98"
             >
@@ -510,11 +537,23 @@ export default function CycleScreen() {
 
       {/* Recipe Modal */}
       {recipeModalOpen && (
-        <div className="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-surface-container-lowest rounded-2xl p-5 max-w-sm w-full shadow-2xl flex flex-col gap-3 border border-outline-variant/30">
+        <div
+          className="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setRecipeModalOpen(false);
+          }}
+        >
+          <div
+            className="bg-surface-container-lowest rounded-2xl p-5 max-w-sm w-full shadow-2xl flex flex-col gap-3 border border-outline-variant/30 my-auto max-h-[88vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b pb-2">
               <h4 className="font-headline-sm font-bold text-sm text-on-surface">Sayur Bening & Pepes Ikan</h4>
-              <button onClick={() => setRecipeModalOpen(false)}>
+              <button
+                type="button"
+                onClick={() => setRecipeModalOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container"
+              >
                 <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
             </div>
@@ -528,6 +567,7 @@ export default function CycleScreen() {
               Estimasi: ~280 kkal per porsi lengkap
             </div>
             <button
+              type="button"
               onClick={() => setRecipeModalOpen(false)}
               className="w-full py-2.5 bg-primary text-on-primary rounded-full font-label-md text-xs font-bold active:scale-98"
             >
@@ -558,17 +598,29 @@ export default function CycleScreen() {
 
       {/* HPHT Modal */}
       {hphtModalOpen && (
-        <div className="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in">
-          <div className="w-full max-w-sm bg-surface-container-lowest rounded-t-3xl sm:rounded-2xl p-5 flex flex-col gap-3.5 shadow-2xl border border-outline-variant/30 pb-10 sm:pb-5">
-            <div className="flex items-center justify-between border-b pb-2">
+        <div
+          className="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto animate-in fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setHphtModalOpen(false);
+          }}
+        >
+          <div
+            className="w-full max-w-sm bg-surface-container-lowest rounded-t-3xl sm:rounded-2xl p-5 flex flex-col gap-3.5 shadow-2xl border border-outline-variant/30 my-auto max-h-[88vh] overflow-y-auto pb-8 sm:pb-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-outline-variant/20 pb-2.5 sticky top-0 bg-surface-container-lowest z-10">
               <h3 className="font-headline-sm font-bold text-base text-on-surface">
                 Ubah HPHT & Siklus Bulanan
               </h3>
-              <button onClick={() => setHphtModalOpen(false)}>
+              <button
+                type="button"
+                onClick={() => setHphtModalOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors"
+              >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
             </div>
-            <form onSubmit={handleSaveHpht} className="flex flex-col gap-3">
+            <form onSubmit={handleSaveHpht} className="flex flex-col gap-3.5">
               <div>
                 <label className="font-label-sm text-xs text-on-surface-variant block mb-1 font-medium">
                   Hari Pertama Haid Terakhir (HPHT):
@@ -577,6 +629,7 @@ export default function CycleScreen() {
                   type="date"
                   required
                   value={newHpht}
+                  max={new Date().toISOString().split('T')[0]}
                   onChange={(e) => setNewHpht(e.target.value)}
                   className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 border border-outline-variant/20 text-xs"
                 />
@@ -595,7 +648,7 @@ export default function CycleScreen() {
                     onChange={(e) => setNewCycleLength(e.target.value)}
                     className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 border border-outline-variant/20 text-xs"
                   />
-                  <span className="text-[10px] text-on-surface-variant">Rata-rata 28 hari</span>
+                  <span className="text-[10px] text-on-surface-variant block mt-0.5">Rata-rata 28 hari</span>
                 </div>
                 <div>
                   <label className="font-label-sm text-xs text-on-surface-variant block mb-1 font-medium">
@@ -610,12 +663,12 @@ export default function CycleScreen() {
                     onChange={(e) => setNewPeriodDuration(e.target.value)}
                     className="w-full p-2.5 rounded-xl bg-surface-container-low text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 border border-outline-variant/20 text-xs"
                   />
-                  <span className="text-[10px] text-on-surface-variant">Rata-rata 5-7 hari</span>
+                  <span className="text-[10px] text-on-surface-variant block mt-0.5">Rata-rata 5-7 hari</span>
                 </div>
               </div>
               <button
                 type="submit"
-                className="mt-2 w-full py-3 bg-primary text-on-primary rounded-full font-label-lg font-bold text-xs shadow-sm active:scale-98"
+                className="mt-2 w-full py-3 bg-primary hover:bg-primary/90 text-on-primary rounded-full font-label-lg font-bold text-xs shadow-sm active:scale-98 transition-all"
               >
                 Simpan & Sinkronkan Siklus
               </button>
